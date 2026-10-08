@@ -4,7 +4,11 @@
   <h3>⚡ Universal Cross-Platform System & Hardware Diagnostics Suite</h3>
   <p><strong>Developed by Uchit Chakma • Owned & Published by UCDREAMS TECHNOLOGIES LLP</strong></p>
   <p>
-    <a href="https://ucdreams.com"><img src="https://img.shields.io/badge/Company-UCDREAMS%20TECHNOLOGIES%20LLP-C5453E?style=for-the-badge" alt="Company" /></a>
+    <a href="https://github.com/uchitchakma/quickOS/releases/latest"><img src="https://img.shields.io/badge/Download-Latest%20Release%20(.dmg)-C5453E?style=for-the-badge&logo=apple" alt="Download Latest Release" /></a>
+    <a href="https://github.com/uchitchakma/quickOS/releases"><img src="https://img.shields.io/github/v/release/uchitchakma/quickOS?style=for-the-badge&color=10B981" alt="Release Version" /></a>
+  </p>
+  <p>
+    <a href="https://ucdreams.com"><img src="https://img.shields.io/badge/Company-UCDREAMS%20TECHNOLOGIES%20LLP-14171D?style=for-the-badge" alt="Company" /></a>
     <a href="https://uchitchakma.com"><img src="https://img.shields.io/badge/Developer-Uchit%20Chakma-14171D?style=for-the-badge&logo=code" alt="Developer" /></a>
     <a href="#license"><img src="https://img.shields.io/badge/License-Proprietary%20%2F%20Safe-10B981?style=for-the-badge" alt="License" /></a>
   </p>
