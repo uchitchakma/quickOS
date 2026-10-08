@@ -103,6 +103,26 @@ interface PingResult {
   raw_output: string;
 }
 
+interface HypervisorInfo {
+  supported: boolean;
+  host_cpus: number;
+  host_memory_mb: number;
+  min_cpus: number;
+  max_cpus: number;
+  min_memory_mb: number;
+  max_memory_mb: number;
+  vms_directory: string;
+  wine_available: boolean;
+  wine_path?: string;
+  qemu_available: boolean;
+  os_version: string;
+}
+
+interface VMRunResult {
+  success: boolean;
+  message: string;
+}
+
 // Global invocation helper (safely connects to Tauri native core with browser fallback)
 async function invokeBackend<T>(cmd: string, args: Record<string, unknown> = {}): Promise<T> {
   try {
@@ -114,6 +134,47 @@ async function invokeBackend<T>(cmd: string, args: Record<string, unknown> = {})
 }
 
 function mockBackendResponse<T>(cmd: string, args: Record<string, unknown>): T {
+  if (cmd === 'get_hypervisor_info') {
+    return {
+      supported: true,
+      host_cpus: navigator.hardwareConcurrency || 8,
+      host_memory_mb: 8192,
+      min_cpus: 1,
+      max_cpus: 64,
+      min_memory_mb: 4,
+      max_memory_mb: 32768,
+      vms_directory: "~/quickOS-VMs",
+      wine_available: false,
+      wine_path: undefined,
+      qemu_available: false,
+      os_version: "macOS (Apple Silicon)"
+    } as unknown as T;
+  }
+
+  if (cmd === 'start_native_vm') {
+    return {
+      success: true,
+      message: `Virtual machine '${args.name || "VM"}' booted in a dedicated native window.`
+    } as unknown as T;
+  }
+
+  if (cmd === 'run_windows_exe') {
+    return {
+      success: true,
+      message: `Launched application '${args.exe_path}' with Windows compatibility layer.`
+    } as unknown as T;
+  }
+
+  if (cmd === 'create_vm_disk') {
+    return {
+      success: true,
+      message: `Created ${args.size_gb || 32} GB sparse virtual hard disk at ${args.path}`
+    } as unknown as T;
+  }
+
+  if (cmd === 'open_vms_folder') {
+    return "~/quickOS-VMs" as unknown as T;
+  }
   if (cmd === 'get_system_info') {
     return {
       hostname: "quickOS-VirtualNode.local",
@@ -233,6 +294,7 @@ class QuickOSApp {
   public currentTab = 'overview';
   private currentTheme: 'dark' | 'light' = 'dark';
   private latestSpecs: SystemSpecs | null = null;
+  private hypervisorInfo: HypervisorInfo | null = null;
   private activeOSType: 'windows' | 'linux' | 'android' | null = null;
   private activeOSUrl: string = '';
   private isFullscreenVM: boolean = false;
@@ -240,8 +302,10 @@ class QuickOSApp {
   init() {
     this.initTheme();
     this.setupTabs();
+    this.setupVMModeSwitcher();
     this.setupActions();
     this.loadAllData();
+    this.loadHypervisorInfo();
 
     // Live refresh every 4 seconds for CPU/RAM telemetry
     setInterval(() => {
@@ -365,6 +429,188 @@ class QuickOSApp {
     document.getElementById('btn-vos-popout')?.addEventListener('click', () => this.popoutVirtualOS());
     document.getElementById('btn-vos-reload')?.addEventListener('click', () => this.reloadVirtualOS());
     document.getElementById('btn-vos-poweroff')?.addEventListener('click', () => this.closeVirtualOS());
+
+    // Native Hypervisor & VM Buttons
+    document.getElementById('btn-open-vms-dir')?.addEventListener('click', () => this.openVMsFolder());
+    document.getElementById('btn-start-native-win11')?.addEventListener('click', () => this.startNativeWindowsVM());
+    document.getElementById('btn-create-win-disk')?.addEventListener('click', () => this.createVirtualDisk('windows'));
+    document.getElementById('btn-start-native-linux')?.addEventListener('click', () => this.startNativeLinuxVM());
+    document.getElementById('btn-create-linux-disk')?.addEventListener('click', () => this.createVirtualDisk('linux'));
+    document.getElementById('btn-run-wine-exe')?.addEventListener('click', () => this.runWindowsExe());
+
+    // Enter key inside wine-exe-path
+    document.getElementById('wine-exe-path')?.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') this.runWindowsExe();
+    });
+  }
+
+  private setupVMModeSwitcher() {
+    const tabBtns = document.querySelectorAll<HTMLButtonElement>('.vm-tab-btn');
+    tabBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const mode = btn.getAttribute('data-vm-tab');
+        if (!mode) return;
+
+        tabBtns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+
+        document.querySelectorAll('.vm-mode-panel').forEach(p => p.classList.remove('active'));
+        document.getElementById(`vm-panel-${mode}`)?.classList.add('active');
+      });
+    });
+  }
+
+  private async loadHypervisorInfo() {
+    try {
+      const hv = await invokeBackend<HypervisorInfo>('get_hypervisor_info');
+      this.hypervisorInfo = hv;
+
+      const cpusEl = document.getElementById('hv-host-cpus');
+      const ramEl = document.getElementById('hv-host-ram');
+      const pathEl = document.getElementById('hv-vms-path');
+      const engineEl = document.getElementById('hv-engine-name');
+      const wineStatusEl = document.getElementById('wine-status-text');
+
+      if (cpusEl) cpusEl.textContent = `${hv.host_cpus} Cores`;
+      if (ramEl) ramEl.textContent = `${(hv.host_memory_mb / 1024).toFixed(1)} GB`;
+      if (pathEl) pathEl.textContent = hv.vms_directory;
+      if (engineEl) engineEl.textContent = hv.supported ? 'Apple Virtualization.framework' : 'Software Hypervisor Engine';
+
+      if (wineStatusEl) {
+        if (hv.wine_available) {
+          wineStatusEl.textContent = `Wine / Windows compatibility layer detected (${hv.wine_path || "active"}). Ready to run .exe applications.`;
+        } else {
+          wineStatusEl.textContent = `Ready. Enter path to any Windows .exe or .msi file and click 'Run .exe Natively on Mac'.`;
+        }
+      }
+    } catch (err) {
+      console.warn("Error loading hypervisor telemetry:", err);
+    }
+  }
+
+  private async startNativeWindowsVM() {
+    const cpusSelect = document.getElementById('win-cfg-cpus') as HTMLSelectElement | null;
+    const memSelect = document.getElementById('win-cfg-memory') as HTMLSelectElement | null;
+    const diskInput = document.getElementById('win-cfg-disk') as HTMLInputElement | null;
+    const isoInput = document.getElementById('win-cfg-iso') as HTMLInputElement | null;
+    const logEl = document.getElementById('win-vm-log-text');
+
+    const cpus = cpusSelect ? parseInt(cpusSelect.value, 10) : 4;
+    const memoryMb = memSelect ? parseInt(memSelect.value, 10) : 4096;
+    let diskPath = diskInput ? diskInput.value.trim() : '~/quickOS-VMs/windows11/disk.img';
+    const isoPath = isoInput ? isoInput.value.trim() : '';
+
+    if (diskPath.startsWith('~')) {
+      const home = this.hypervisorInfo?.vms_directory.replace('/quickOS-VMs', '') || '/Users/' + (navigator.userAgent.includes('Mac') ? 'current' : 'user');
+      diskPath = diskPath.replace('~', home);
+    }
+
+    if (logEl) logEl.textContent = `Booting real Windows 11 ARM64 VM (${cpus} vCPUs, ${memoryMb} MB RAM)... Spawning dedicated native display window...`;
+
+    try {
+      const res = await invokeBackend<VMRunResult>('start_native_vm', {
+        name: 'Windows 11 Pro ARM64',
+        os_type: 'windows',
+        cpus,
+        memory_mb: memoryMb,
+        disk_path: diskPath,
+        iso_path: isoPath || null
+      });
+
+      if (logEl) logEl.textContent = res.message;
+    } catch (err) {
+      if (logEl) logEl.textContent = `Failed to start VM: ${err}`;
+    }
+  }
+
+  private async startNativeLinuxVM() {
+    const cpusSelect = document.getElementById('linux-cfg-cpus') as HTMLSelectElement | null;
+    const memSelect = document.getElementById('linux-cfg-memory') as HTMLSelectElement | null;
+    const diskInput = document.getElementById('linux-cfg-disk') as HTMLInputElement | null;
+    const isoInput = document.getElementById('linux-cfg-iso') as HTMLInputElement | null;
+    const logEl = document.getElementById('linux-vm-log-text');
+
+    const cpus = cpusSelect ? parseInt(cpusSelect.value, 10) : 2;
+    const memoryMb = memSelect ? parseInt(memSelect.value, 10) : 2048;
+    let diskPath = diskInput ? diskInput.value.trim() : '~/quickOS-VMs/ubuntu/disk.img';
+    const isoPath = isoInput ? isoInput.value.trim() : '';
+
+    if (diskPath.startsWith('~')) {
+      const home = this.hypervisorInfo?.vms_directory.replace('/quickOS-VMs', '') || '/Users/current';
+      diskPath = diskPath.replace('~', home);
+    }
+
+    if (logEl) logEl.textContent = `Booting real Ubuntu 24.04 LTS Linux VM (${cpus} vCPUs, ${memoryMb} MB RAM)... Spawning native display window...`;
+
+    try {
+      const res = await invokeBackend<VMRunResult>('start_native_vm', {
+        name: 'Ubuntu 24.04 LTS Linux',
+        os_type: 'linux',
+        cpus,
+        memory_mb: memoryMb,
+        disk_path: diskPath,
+        iso_path: isoPath || null
+      });
+
+      if (logEl) logEl.textContent = res.message;
+    } catch (err) {
+      if (logEl) logEl.textContent = `Failed to start Linux VM: ${err}`;
+    }
+  }
+
+  private async createVirtualDisk(type: 'windows' | 'linux') {
+    const inputId = type === 'windows' ? 'win-cfg-disk' : 'linux-cfg-disk';
+    const logId = type === 'windows' ? 'win-vm-log-text' : 'linux-vm-log-text';
+    const sizeGb = type === 'windows' ? 32 : 20;
+
+    const input = document.getElementById(inputId) as HTMLInputElement | null;
+    const logEl = document.getElementById(logId);
+    let diskPath = input ? input.value.trim() : (type === 'windows' ? '~/quickOS-VMs/windows11/disk.img' : '~/quickOS-VMs/ubuntu/disk.img');
+
+    if (diskPath.startsWith('~')) {
+      const home = this.hypervisorInfo?.vms_directory.replace('/quickOS-VMs', '') || '/Users/current';
+      diskPath = diskPath.replace('~', home);
+    }
+
+    if (logEl) logEl.textContent = `Creating ${sizeGb} GB sparse virtual hard disk at: ${diskPath}...`;
+
+    try {
+      const res = await invokeBackend<VMRunResult>('create_vm_disk', {
+        path: diskPath,
+        size_gb: sizeGb
+      });
+      if (logEl) logEl.textContent = res.message;
+    } catch (err) {
+      if (logEl) logEl.textContent = `Failed to create virtual disk: ${err}`;
+    }
+  }
+
+  private async runWindowsExe() {
+    const input = document.getElementById('wine-exe-path') as HTMLInputElement | null;
+    const statusText = document.getElementById('wine-status-text');
+    const exePath = input ? input.value.trim() : '';
+
+    if (!exePath) {
+      if (statusText) statusText.textContent = 'Please enter or paste the path to a Windows .exe or .msi file.';
+      return;
+    }
+
+    if (statusText) statusText.textContent = `Executing Windows application '${exePath}' on macOS...`;
+
+    try {
+      const res = await invokeBackend<VMRunResult>('run_windows_exe', { exe_path: exePath });
+      if (statusText) statusText.textContent = res.message;
+    } catch (err) {
+      if (statusText) statusText.textContent = `Error launching application: ${err}`;
+    }
+  }
+
+  private async openVMsFolder() {
+    try {
+      await invokeBackend('open_vms_folder');
+    } catch (err) {
+      console.error("Error opening VMs folder:", err);
+    }
   }
 
   public launchVirtualOS(osType: 'windows' | 'linux' | 'android') {

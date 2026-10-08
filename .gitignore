@@ -10,6 +10,7 @@ pnpm-debug.log*
 # Rust & Cargo
 src-tauri/target/
 src-tauri/gen/
+src-tauri/bin/
 **/*.rs.bk
 Cargo.lock
 

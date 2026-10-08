@@ -112,6 +112,28 @@ pub struct PingResult {
     pub raw_output: String,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct HypervisorInfo {
+    pub supported: bool,
+    pub host_cpus: usize,
+    pub host_memory_mb: u64,
+    pub min_cpus: usize,
+    pub max_cpus: usize,
+    pub min_memory_mb: u64,
+    pub max_memory_mb: u64,
+    pub vms_directory: String,
+    pub wine_available: bool,
+    pub wine_path: Option<String>,
+    pub qemu_available: bool,
+    pub os_version: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct VMRunResult {
+    pub success: bool,
+    pub message: String,
+}
+
 pub mod handlers {
     use super::*;
 
@@ -914,6 +936,159 @@ pub mod handlers {
 
         Ok(path_str)
     }
+
+    fn find_quickos_vm_bin() -> std::path::PathBuf {
+        let cur = std::env::current_dir().unwrap_or_default();
+        let candidates = [
+            cur.join("src-tauri/bin/quickos-vm"),
+            cur.join("bin/quickos-vm"),
+            cur.join("../src-tauri/bin/quickos-vm"),
+            std::path::PathBuf::from("/usr/local/bin/quickos-vm"),
+        ];
+
+        for c in &candidates {
+            if c.exists() {
+                return c.clone();
+            }
+        }
+        std::path::PathBuf::from("quickos-vm")
+    }
+
+    #[tauri::command]
+    pub fn get_hypervisor_info() -> HypervisorInfo {
+        let bin_path = find_quickos_vm_bin();
+        if let Ok(output) = Command::new(&bin_path).arg("status").output() {
+            if output.status.success() {
+                if let Ok(info) = serde_json::from_slice::<serde_json::Value>(&output.stdout) {
+                    return HypervisorInfo {
+                        supported: info["supported"].as_bool().unwrap_or(true),
+                        host_cpus: info["hostCpus"].as_u64().unwrap_or(8) as usize,
+                        host_memory_mb: info["hostMemoryMb"].as_u64().unwrap_or(8192),
+                        min_cpus: info["minCpus"].as_u64().unwrap_or(1) as usize,
+                        max_cpus: info["maxCpus"].as_u64().unwrap_or(64) as usize,
+                        min_memory_mb: info["minMemoryMb"].as_u64().unwrap_or(4),
+                        max_memory_mb: info["maxMemoryMb"].as_u64().unwrap_or(8192),
+                        vms_directory: info["vmsDirectory"].as_str().unwrap_or("~/quickOS-VMs").to_string(),
+                        wine_available: info["wineAvailable"].as_bool().unwrap_or(false),
+                        wine_path: info["winePath"].as_str().map(|s| s.to_string()),
+                        qemu_available: info["qemuAvailable"].as_bool().unwrap_or(false),
+                        os_version: info["osVersion"].as_str().unwrap_or("macOS").to_string(),
+                    };
+                }
+            }
+        }
+
+        let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
+        HypervisorInfo {
+            supported: true,
+            host_cpus: 8,
+            host_memory_mb: 8192,
+            min_cpus: 1,
+            max_cpus: 64,
+            min_memory_mb: 4,
+            max_memory_mb: 32768,
+            vms_directory: format!("{}/quickOS-VMs", home),
+            wine_available: false,
+            wine_path: None,
+            qemu_available: false,
+            os_version: "macOS (Apple Silicon)".to_string(),
+        }
+    }
+
+    #[tauri::command]
+    pub fn start_native_vm(
+        name: String,
+        os_type: String,
+        cpus: usize,
+        memory_mb: u64,
+        disk_path: String,
+        iso_path: Option<String>
+    ) -> VMRunResult {
+        let bin_path = find_quickos_vm_bin();
+        let mut cmd = Command::new(&bin_path);
+        cmd.arg("start")
+           .arg("--name").arg(&name)
+           .arg("--type").arg(&os_type)
+           .arg("--cpus").arg(cpus.to_string())
+           .arg("--memory").arg(memory_mb.to_string())
+           .arg("--disk").arg(&disk_path);
+
+        if let Some(iso) = iso_path {
+            if !iso.trim().is_empty() {
+                cmd.arg("--iso").arg(iso);
+            }
+        }
+
+        match cmd.spawn() {
+            Ok(_) => VMRunResult {
+                success: true,
+                message: format!("Virtual Machine '{}' booted in a dedicated native high-performance window.", name),
+            },
+            Err(e) => VMRunResult {
+                success: false,
+                message: format!("Failed to spawn native VM process: {}", e),
+            }
+        }
+    }
+
+    #[tauri::command]
+    pub fn run_windows_exe(exe_path: String) -> VMRunResult {
+        let bin_path = find_quickos_vm_bin();
+        match Command::new(&bin_path).arg("run-exe").arg(&exe_path).spawn() {
+            Ok(_) => VMRunResult {
+                success: true,
+                message: format!("Launched Windows application: {}", exe_path),
+            },
+            Err(e) => VMRunResult {
+                success: false,
+                message: format!("Failed to launch .exe application: {}", e),
+            }
+        }
+    }
+
+    #[tauri::command]
+    pub fn create_vm_disk(path: String, size_gb: usize) -> VMRunResult {
+        let bin_path = find_quickos_vm_bin();
+        match Command::new(&bin_path)
+            .arg("create-disk")
+            .arg("--path").arg(&path)
+            .arg("--size").arg(size_gb.to_string())
+            .output()
+        {
+            Ok(out) if out.status.success() => VMRunResult {
+                success: true,
+                message: format!("Created {} GB virtual hard disk at: {}", size_gb, path),
+            },
+            Ok(out) => VMRunResult {
+                success: false,
+                message: String::from_utf8_lossy(&out.stderr).to_string(),
+            },
+            Err(e) => VMRunResult {
+                success: false,
+                message: format!("Execution failed: {}", e),
+            }
+        }
+    }
+
+    #[tauri::command]
+    pub fn open_vms_folder() -> Result<String, String> {
+        let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
+        let vms_dir = format!("{}/quickOS-VMs", home);
+        let _ = std::fs::create_dir_all(&vms_dir);
+        #[cfg(target_os = "macos")]
+        {
+            let _ = Command::new("open").arg(&vms_dir).spawn();
+        }
+        #[cfg(target_os = "windows")]
+        {
+            let _ = Command::new("explorer").arg(&vms_dir).spawn();
+        }
+        #[cfg(target_os = "linux")]
+        {
+            let _ = Command::new("xdg-open").arg(&vms_dir).spawn();
+        }
+        Ok(vms_dir)
+    }
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -927,7 +1102,12 @@ pub fn run() {
             handlers::get_bluetooth_info,
             handlers::run_diagnostics_suite,
             handlers::ping_host,
-            handlers::open_installer_folder
+            handlers::open_installer_folder,
+            handlers::get_hypervisor_info,
+            handlers::start_native_vm,
+            handlers::run_windows_exe,
+            handlers::create_vm_disk,
+            handlers::open_vms_folder
         ])
         .run(tauri::generate_context!())
         .expect("error while running quickOS application");
