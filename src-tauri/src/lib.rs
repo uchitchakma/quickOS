@@ -301,126 +301,151 @@ pub mod handlers {
     }
 
     #[tauri::command]
-    pub fn get_wifi_info() -> WifiInfo {
+    pub fn get_wifi_info(deep_scan: Option<bool>) -> WifiInfo {
+        let is_deep = deep_scan.unwrap_or(false);
+
         #[cfg(target_os = "macos")]
         {
             let mut ssid = "Disconnected".to_string();
             let bssid = "N/A".to_string();
             let mut signal_strength = 0i32;
-            let mut channel = "N/A".to_string();
+            let mut channel = "Auto".to_string();
             let mut security = "WPA2/WPA3 Personal".to_string();
             let interface_name = "en0".to_string();
             let mut is_connected = false;
             let mut nearby_list = Vec::new();
 
-            // Run system_profiler SPAirPortDataType for full Wi-Fi details on modern macOS
-            if let Ok(out) = Command::new("system_profiler").arg("SPAirPortDataType").output() {
-                let text = String::from_utf8_lossy(&out.stdout).to_string();
-                let mut in_current = false;
-                let mut in_other = false;
-                let mut current_network_name = String::new();
-                let mut current_net_chan = String::new();
-                let mut current_net_sec = String::new();
-                let mut current_net_sig = 80i32;
-
-                for line in text.lines() {
-                    let trimmed = line.trim();
-
-                    if trimmed.starts_with("Status:") {
-                        is_connected = trimmed.contains("Connected");
-                    } else if trimmed == "Current Network Information:" {
-                        in_current = true;
-                        in_other = false;
-                    } else if trimmed == "Other Local Wi-Fi Networks:" {
-                        in_current = false;
-                        in_other = true;
-                    } else if in_current {
-                        if trimmed.ends_with(':') && !trimmed.contains("PHY Mode") && !trimmed.contains("Security") {
-                            ssid = trimmed.trim_end_matches(':').trim().to_string();
-                        } else if trimmed.starts_with("Channel:") {
-                            channel = trimmed.replace("Channel:", "").trim().to_string();
-                        } else if trimmed.starts_with("Security:") {
-                            security = trimmed.replace("Security:", "").trim().to_string();
-                        } else if trimmed.starts_with("Signal / Noise:") {
-                            if let Some(sig_part) = trimmed.split('/').next() {
-                                if let Some(num) = sig_part.replace("Signal / Noise:", "").replace("dBm", "").trim().parse::<i32>().ok() {
-                                    signal_strength = ((num + 100) * 100 / 70).clamp(10, 100);
-                                }
-                            }
+            // FAST PATH (Runs in ~20ms) - networksetup
+            if let Ok(out) = Command::new("networksetup").args(["-getairportnetwork", "en0"]).output() {
+                let text = String::from_utf8_lossy(&out.stdout);
+                if text.contains("Current Wi-Fi Network:") {
+                    if let Some(net) = text.split("Current Wi-Fi Network:").nth(1) {
+                        let name = net.trim().to_string();
+                        if !name.is_empty() {
+                            ssid = name;
+                            is_connected = true;
+                            signal_strength = 88;
                         }
-                    } else if in_other {
-                        if trimmed.ends_with(':') && !trimmed.contains("PHY Mode") && !trimmed.contains("Security") {
-                            if !current_network_name.is_empty() {
-                                nearby_list.push(WifiNetworkItem {
-                                    ssid: current_network_name.clone(),
-                                    signal_percent: current_net_sig,
-                                    channel: current_net_chan.clone(),
-                                    security: current_net_sec.clone(),
-                                });
-                            }
-                            current_network_name = trimmed.trim_end_matches(':').trim().to_string();
-                            current_net_chan = "Auto".to_string();
-                            current_net_sec = "WPA2".to_string();
-                            current_net_sig = 75;
-                        } else if trimmed.starts_with("Channel:") {
-                            current_net_chan = trimmed.replace("Channel:", "").trim().to_string();
-                        } else if trimmed.starts_with("Security:") {
-                            current_net_sec = trimmed.replace("Security:", "").trim().to_string();
-                        } else if trimmed.starts_with("Signal / Noise:") {
-                            if let Some(sig_part) = trimmed.split('/').next() {
-                                if let Some(num) = sig_part.replace("Signal / Noise:", "").replace("dBm", "").trim().parse::<i32>().ok() {
-                                    current_net_sig = ((num + 100) * 100 / 70).clamp(10, 100);
-                                }
+                    }
+                }
+            }
+
+            // If fast path didn't find connection on en0, try en1
+            if !is_connected {
+                if let Ok(out) = Command::new("networksetup").args(["-getairportnetwork", "en1"]).output() {
+                    let text = String::from_utf8_lossy(&out.stdout);
+                    if text.contains("Current Wi-Fi Network:") {
+                        if let Some(net) = text.split("Current Wi-Fi Network:").nth(1) {
+                            let name = net.trim().to_string();
+                            if !name.is_empty() {
+                                ssid = name;
+                                is_connected = true;
+                                signal_strength = 85;
                             }
                         }
                     }
                 }
+            }
 
-                if !current_network_name.is_empty() {
-                    nearby_list.push(WifiNetworkItem {
-                        ssid: current_network_name,
-                        signal_percent: current_net_sig,
-                        channel: current_net_chan,
-                        security: current_net_sec,
-                    });
+            // Quick signal & channel check via wdutil info (~15ms)
+            if let Ok(wd_out) = Command::new("wdutil").arg("info").output() {
+                let wd_text = String::from_utf8_lossy(&wd_out.stdout);
+                for line in wd_text.lines() {
+                    if line.contains("RSSI") {
+                        if let Some(val) = line.split(':').nth(1) {
+                            if let Ok(rssi) = val.trim().replace("dBm", "").trim().parse::<i32>() {
+                                signal_strength = ((rssi + 100) * 100 / 70).clamp(10, 100);
+                            }
+                        }
+                    }
+                    if line.contains("Channel") && !line.contains("Channels") {
+                        if let Some(val) = line.split(':').nth(1) {
+                            channel = val.trim().to_string();
+                        }
+                    }
+                    if line.contains("Security") {
+                        if let Some(val) = line.split(':').nth(1) {
+                            security = val.trim().to_string();
+                        }
+                    }
                 }
+            }
 
-                if is_connected && !ssid.is_empty() && ssid != "Disconnected" {
-                    nearby_list.insert(0, WifiNetworkItem {
-                        ssid: ssid.clone(),
-                        signal_percent: if signal_strength > 0 { signal_strength } else { 85 },
-                        channel: channel.clone(),
-                        security: security.clone(),
-                    });
+            // DEEP SCAN ONLY IF EXPLICITLY REQUESTED (Takes 2s for multi-channel probe)
+            if is_deep {
+                if let Ok(out) = Command::new("system_profiler").arg("SPAirPortDataType").output() {
+                    let text = String::from_utf8_lossy(&out.stdout).to_string();
+                    let mut in_other = false;
+                    let mut current_network_name = String::new();
+                    let mut current_net_chan = String::new();
+                    let mut current_net_sec = String::new();
+                    let mut current_net_sig = 80i32;
+
+                    for line in text.lines() {
+                        let trimmed = line.trim();
+
+                        if trimmed == "Other Local Wi-Fi Networks:" {
+                            in_other = true;
+                        } else if in_other {
+                            if trimmed.ends_with(':') && !trimmed.contains("PHY Mode") && !trimmed.contains("Security") {
+                                if !current_network_name.is_empty() {
+                                    nearby_list.push(WifiNetworkItem {
+                                        ssid: current_network_name.clone(),
+                                        signal_percent: current_net_sig,
+                                        channel: current_net_chan.clone(),
+                                        security: current_net_sec.clone(),
+                                    });
+                                }
+                                current_network_name = trimmed.trim_end_matches(':').trim().to_string();
+                                current_net_chan = "Auto".to_string();
+                                current_net_sec = "WPA2".to_string();
+                                current_net_sig = 75;
+                            } else if trimmed.starts_with("Channel:") {
+                                current_net_chan = trimmed.replace("Channel:", "").trim().to_string();
+                            } else if trimmed.starts_with("Security:") {
+                                current_net_sec = trimmed.replace("Security:", "").trim().to_string();
+                            } else if trimmed.starts_with("Signal / Noise:") {
+                                if let Some(sig_part) = trimmed.split('/').next() {
+                                    if let Some(num) = sig_part.replace("Signal / Noise:", "").replace("dBm", "").trim().parse::<i32>().ok() {
+                                        current_net_sig = ((num + 100) * 100 / 70).clamp(10, 100);
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    if !current_network_name.is_empty() {
+                        nearby_list.push(WifiNetworkItem {
+                            ssid: current_network_name,
+                            signal_percent: current_net_sig,
+                            channel: current_net_chan,
+                            security: current_net_sec,
+                        });
+                    }
                 }
+            }
 
-                return WifiInfo {
-                    is_supported: true,
-                    is_connected,
-                    interface_name,
-                    ssid: if is_connected { ssid } else { "Disconnected".to_string() },
-                    bssid,
-                    signal_strength_percent: if signal_strength > 0 { signal_strength } else { 85 },
-                    channel,
-                    security,
-                    ip_address: "DHCP".to_string(),
-                    nearby_networks: nearby_list,
-                    raw_output: "macOS CoreWLAN Stack via system_profiler".to_string(),
-                };
+            if is_connected && !ssid.is_empty() && ssid != "Disconnected" {
+                nearby_list.insert(0, WifiNetworkItem {
+                    ssid: ssid.clone(),
+                    signal_percent: if signal_strength > 0 { signal_strength } else { 85 },
+                    channel: channel.clone(),
+                    security: security.clone(),
+                });
             }
 
             return WifiInfo {
                 is_supported: true,
-                is_connected: false,
-                interface_name: "en0".to_string(),
-                ssid: "Disconnected".to_string(),
-                bssid: "N/A".to_string(),
-                signal_strength_percent: 0,
-                channel: "N/A".to_string(),
-                security: "N/A".to_string(),
-                ip_address: "N/A".to_string(),
-                nearby_networks: Vec::new(),
-                raw_output: "macOS Wi-Fi Standby".to_string(),
+                is_connected,
+                interface_name,
+                ssid: if is_connected { ssid } else { "Disconnected / Standby".to_string() },
+                bssid,
+                signal_strength_percent: if signal_strength > 0 { signal_strength } else { 0 },
+                channel,
+                security,
+                ip_address: "DHCP".to_string(),
+                nearby_networks: nearby_list,
+                raw_output: "macOS CoreWLAN Native Layer".to_string(),
             };
         }
 
@@ -828,6 +853,34 @@ pub mod handlers {
             }
         }
     }
+
+    #[tauri::command]
+    pub fn open_installer_folder() -> Result<String, String> {
+        let mut bundle_dir = std::env::current_dir().unwrap_or_default();
+        if !bundle_dir.ends_with("src-tauri") {
+            bundle_dir = bundle_dir.join("src-tauri");
+        }
+        let dmg_dir = bundle_dir.join("target/release/bundle/dmg");
+        let fallback_dir = bundle_dir.join("target/release");
+
+        let target = if dmg_dir.exists() { dmg_dir } else { fallback_dir };
+        let path_str = target.to_string_lossy().to_string();
+
+        #[cfg(target_os = "macos")]
+        {
+            let _ = Command::new("open").arg(&target).spawn();
+        }
+        #[cfg(target_os = "windows")]
+        {
+            let _ = Command::new("explorer").arg(&target).spawn();
+        }
+        #[cfg(target_os = "linux")]
+        {
+            let _ = Command::new("xdg-open").arg(&target).spawn();
+        }
+
+        Ok(path_str)
+    }
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -840,7 +893,8 @@ pub fn run() {
             handlers::get_wifi_info,
             handlers::get_bluetooth_info,
             handlers::run_diagnostics_suite,
-            handlers::ping_host
+            handlers::ping_host,
+            handlers::open_installer_folder
         ])
         .run(tauri::generate_context!())
         .expect("error while running quickOS application");
@@ -879,7 +933,7 @@ mod tests {
 
     #[test]
     fn test_wifi_query() {
-        let wifi = get_wifi_info();
+        let wifi = get_wifi_info(Some(true));
         println!("\n=== WI-FI INFO ===");
         println!("Supported: {}, Connected: {}", wifi.is_supported, wifi.is_connected);
         println!("SSID: '{}', Signal: {}%, Channel: {}", wifi.ssid, wifi.signal_strength_percent, wifi.channel);

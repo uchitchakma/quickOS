@@ -293,7 +293,7 @@ class QuickOSApp {
     }
 
     // Lazy load or refresh tab content when navigated
-    if (tabId === 'wifi') this.loadWifiInfo();
+    if (tabId === 'wifi') this.loadWifiInfo(false);
     if (tabId === 'bluetooth') this.loadBluetoothInfo();
   }
 
@@ -313,9 +313,9 @@ class QuickOSApp {
       this.copySpecsToClipboard();
     });
 
-    // Scan WiFi button
+    // Scan WiFi button (Deep multi-channel scan)
     document.getElementById('btn-scan-wifi')?.addEventListener('click', () => {
-      this.loadWifiInfo();
+      this.loadWifiInfo(true);
     });
 
     // Scan Bluetooth button
@@ -331,6 +331,15 @@ class QuickOSApp {
     // Send Ping button
     document.getElementById('btn-send-ping')?.addEventListener('click', () => {
       this.executePing();
+    });
+
+    // Open Mac Installer .dmg folder
+    document.getElementById('btn-open-mac-installer')?.addEventListener('click', async () => {
+      try {
+        await invokeBackend('open_installer_folder');
+      } catch (err) {
+        console.error("Error opening installer folder:", err);
+      }
     });
 
     // Enter key inside ping input
@@ -464,9 +473,20 @@ class QuickOSApp {
     }
   }
 
-  private async loadWifiInfo() {
+  private async loadWifiInfo(deepScan: boolean = false) {
+    const scanBtn = document.getElementById('btn-scan-wifi') as HTMLButtonElement | null;
+    const origBtnHtml = scanBtn ? scanBtn.innerHTML : '';
+    
+    if (deepScan && scanBtn) {
+      scanBtn.disabled = true;
+      scanBtn.innerHTML = `
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="spin-animation"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+        Scanning Airwaves...
+      `;
+    }
+
     try {
-      const wifi = await invokeBackend<WifiInfo>('get_wifi_info');
+      const wifi = await invokeBackend<WifiInfo>('get_wifi_info', { deepScan });
       const ssidTitle = document.getElementById('wifi-ssid-display');
       const statusBadge = document.getElementById('wifi-status-badge');
       const ifTag = document.getElementById('wifi-interface-tag');
@@ -489,7 +509,7 @@ class QuickOSApp {
 
       if (nearbyCont) {
         if (!wifi.nearby_networks || wifi.nearby_networks.length === 0) {
-          nearbyCont.innerHTML = '<div class="loading-placeholder">No nearby Wi-Fi broadcast beacons detected.</div>';
+          nearbyCont.innerHTML = '<div class="loading-placeholder">Click "Scan Wi-Fi" to probe all 2.4GHz & 5GHz surrounding access points.</div>';
         } else {
           nearbyCont.innerHTML = wifi.nearby_networks.map(n => `
             <div class="nearby-wifi-card">
@@ -510,6 +530,11 @@ class QuickOSApp {
       }
     } catch (err) {
       console.error("Error reading Wi-Fi info:", err);
+    } finally {
+      if (deepScan && scanBtn) {
+        scanBtn.disabled = false;
+        scanBtn.innerHTML = origBtnHtml;
+      }
     }
   }
 
