@@ -13,12 +13,12 @@
   <body>
     <div id="app" class="app-layout">
       <!-- SIDEBAR -->
-      <aside class="sidebar">
-        <div class="brand-container">
+      <aside class="sidebar" data-tauri-drag-region>
+        <div class="brand-container" data-tauri-drag-region>
           <div class="brand-icon">
             <img src="/app-icon.png" alt="quickOS Icon" class="brand-logo-img" />
           </div>
-          <div class="brand-text">
+          <div class="brand-text" data-tauri-drag-region>
             <h1 class="brand-title">quick<span class="highlight">OS</span></h1>
             <span class="brand-subtitle">Diagnostics v1.0</span>
           </div>
@@ -69,8 +69,8 @@
       <!-- MAIN CONTENT WRAPPER -->
       <main class="main-content">
         <!-- TOPBAR -->
-        <header class="topbar">
-          <div class="topbar-left">
+        <header class="topbar" data-tauri-drag-region>
+          <div class="topbar-left" data-tauri-drag-region>
             <div class="host-badge" id="host-os-badge">
               <span class="pulse-dot"></span>
               <span id="header-os-name">Detecting OS...</span>

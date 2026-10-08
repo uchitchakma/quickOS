@@ -12,14 +12,16 @@
   "app": {
     "windows": [
       {
-        "title": "quickOS | Universal Diagnostics & Hardware Suite",
+        "title": "quickOS",
         "width": 1120,
         "height": 780,
         "minWidth": 840,
         "minHeight": 600,
         "resizable": true,
         "center": true,
-        "decorations": true
+        "decorations": true,
+        "titleBarStyle": "Overlay",
+        "hiddenTitle": true
       }
     ],
     "security": {
