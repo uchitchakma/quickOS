@@ -28,10 +28,16 @@ jobs:
       - name: Checkout repository code
         uses: actions/checkout@v4
 
+      - name: Setup pnpm package manager
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9
+
       - name: Setup Node.js Environment
         uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: 'pnpm'
 
       - name: Setup Rust Stable Toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -43,27 +49,28 @@ jobs:
           sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
 
       - name: Install Frontend Dependencies
-        run: npm install
+        run: pnpm install
 
       - name: Build Webview Frontend
-        run: npm run build
+        run: pnpm build
 
       - name: Build Native Binary & Package Release
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: v1.0.0
+          tagName: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'v1.0.0' }}
           releaseName: 'quickOS v1.0.0 — Universal Diagnostics Suite'
           releaseBody: |
             ### ⚡ quickOS Universal System & Hardware Diagnostics Suite
             **Company:** UCDREAMS TECHNOLOGIES LLP ([ucdreams.com](https://ucdreams.com))
             **Developer:** Uchit Chakma ([uchitchakma.com](https://uchitchakma.com))
 
+            ---
             #### 📦 Download Packages by Operating System:
-            * ** macOS:** Download `quickOS.dmg`
-            * **⊞ Windows 10 / 11:** Download `quickOS_Setup.msi` / `.exe`
-            * **🐧 Linux & Ubuntu:** Download `quickOS.AppImage` / `.deb`
+            * ** macOS:** Download `quickOS_1.0.0_aarch64.dmg` (Apple Silicon) or `quickOS_1.0.0_x64.dmg` (Intel).
+            * **⊞ Windows 10 / 11:** Download `quickOS_1.0.0_x64-setup.exe` or `.msi`.
+            * **🐧 Linux & Ubuntu:** Download `quickOS_1.0.0_amd64.AppImage` or `.deb`.
           releaseDraft: false
           prerelease: false
           args: ${{ matrix.args }}
