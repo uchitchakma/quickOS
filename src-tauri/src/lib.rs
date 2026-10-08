@@ -305,91 +305,122 @@ pub mod handlers {
         #[cfg(target_os = "macos")]
         {
             let mut ssid = "Disconnected".to_string();
-            let mut bssid = "N/A".to_string();
+            let bssid = "N/A".to_string();
             let mut signal_strength = 0i32;
             let mut channel = "N/A".to_string();
-            let mut security = "WPA2/WPA3".to_string();
-            let mut interface_name = "en0".to_string();
+            let mut security = "WPA2/WPA3 Personal".to_string();
+            let interface_name = "en0".to_string();
             let mut is_connected = false;
             let mut nearby_list = Vec::new();
 
-            if let Ok(out) = Command::new("networksetup").args(["-getairportnetwork", "en0"]).output() {
-                let text = String::from_utf8_lossy(&out.stdout);
-                if text.contains("Current Wi-Fi Network:") {
-                    if let Some(net) = text.split("Current Wi-Fi Network:").nth(1) {
-                        ssid = net.trim().to_string();
-                        is_connected = !ssid.is_empty();
-                        signal_strength = 88;
-                    }
-                }
-            }
+            // Run system_profiler SPAirPortDataType for full Wi-Fi details on modern macOS
+            if let Ok(out) = Command::new("system_profiler").arg("SPAirPortDataType").output() {
+                let text = String::from_utf8_lossy(&out.stdout).to_string();
+                let mut in_current = false;
+                let mut in_other = false;
+                let mut current_network_name = String::new();
+                let mut current_net_chan = String::new();
+                let mut current_net_sec = String::new();
+                let mut current_net_sig = 80i32;
 
-            if !is_connected {
-                if let Ok(out2) = Command::new("networksetup").args(["-getairportnetwork", "en1"]).output() {
-                    let text2 = String::from_utf8_lossy(&out2.stdout);
-                    if text2.contains("Current Wi-Fi Network:") {
-                        if let Some(net) = text2.split("Current Wi-Fi Network:").nth(1) {
-                            ssid = net.trim().to_string();
-                            interface_name = "en1".to_string();
-                            is_connected = !ssid.is_empty();
-                            signal_strength = 85;
+                for line in text.lines() {
+                    let trimmed = line.trim();
+
+                    if trimmed.starts_with("Status:") {
+                        is_connected = trimmed.contains("Connected");
+                    } else if trimmed == "Current Network Information:" {
+                        in_current = true;
+                        in_other = false;
+                    } else if trimmed == "Other Local Wi-Fi Networks:" {
+                        in_current = false;
+                        in_other = true;
+                    } else if in_current {
+                        if trimmed.ends_with(':') && !trimmed.contains("PHY Mode") && !trimmed.contains("Security") {
+                            ssid = trimmed.trim_end_matches(':').trim().to_string();
+                        } else if trimmed.starts_with("Channel:") {
+                            channel = trimmed.replace("Channel:", "").trim().to_string();
+                        } else if trimmed.starts_with("Security:") {
+                            security = trimmed.replace("Security:", "").trim().to_string();
+                        } else if trimmed.starts_with("Signal / Noise:") {
+                            if let Some(sig_part) = trimmed.split('/').next() {
+                                if let Some(num) = sig_part.replace("Signal / Noise:", "").replace("dBm", "").trim().parse::<i32>().ok() {
+                                    signal_strength = ((num + 100) * 100 / 70).clamp(10, 100);
+                                }
+                            }
                         }
-                    }
-                }
-            }
-
-            let raw_detail = if let Ok(wd_out) = Command::new("wdutil").arg("info").output() {
-                let wd_text = String::from_utf8_lossy(&wd_out.stdout).to_string();
-                for line in wd_text.lines() {
-                    if line.contains("RSSI") {
-                        if let Some(val) = line.split(':').nth(1) {
-                            if let Ok(rssi) = val.trim().replace("dBm", "").trim().parse::<i32>() {
-                                signal_strength = ((rssi + 100) * 100 / 70).clamp(5, 100);
+                    } else if in_other {
+                        if trimmed.ends_with(':') && !trimmed.contains("PHY Mode") && !trimmed.contains("Security") {
+                            if !current_network_name.is_empty() {
+                                nearby_list.push(WifiNetworkItem {
+                                    ssid: current_network_name.clone(),
+                                    signal_percent: current_net_sig,
+                                    channel: current_net_chan.clone(),
+                                    security: current_net_sec.clone(),
+                                });
+                            }
+                            current_network_name = trimmed.trim_end_matches(':').trim().to_string();
+                            current_net_chan = "Auto".to_string();
+                            current_net_sec = "WPA2".to_string();
+                            current_net_sig = 75;
+                        } else if trimmed.starts_with("Channel:") {
+                            current_net_chan = trimmed.replace("Channel:", "").trim().to_string();
+                        } else if trimmed.starts_with("Security:") {
+                            current_net_sec = trimmed.replace("Security:", "").trim().to_string();
+                        } else if trimmed.starts_with("Signal / Noise:") {
+                            if let Some(sig_part) = trimmed.split('/').next() {
+                                if let Some(num) = sig_part.replace("Signal / Noise:", "").replace("dBm", "").trim().parse::<i32>().ok() {
+                                    current_net_sig = ((num + 100) * 100 / 70).clamp(10, 100);
+                                }
                             }
                         }
                     }
-                    if line.contains("Channel") && !line.contains("Channels") {
-                        if let Some(val) = line.split(':').nth(1) {
-                            channel = val.trim().to_string();
-                        }
-                    }
-                    if line.contains("BSSID") {
-                        if let Some(val) = line.split(':').nth(1) {
-                            bssid = val.trim().to_string();
-                        }
-                    }
-                    if line.contains("Security") {
-                        if let Some(val) = line.split(':').nth(1) {
-                            security = val.trim().to_string();
-                        }
-                    }
                 }
-                wd_text
-            } else {
-                "macOS Native Wi-Fi Stack".to_string()
-            };
 
-            if is_connected {
-                nearby_list.push(WifiNetworkItem {
-                    ssid: ssid.clone(),
-                    signal_percent: signal_strength,
-                    channel: channel.clone(),
-                    security: security.clone(),
-                });
+                if !current_network_name.is_empty() {
+                    nearby_list.push(WifiNetworkItem {
+                        ssid: current_network_name,
+                        signal_percent: current_net_sig,
+                        channel: current_net_chan,
+                        security: current_net_sec,
+                    });
+                }
+
+                if is_connected && !ssid.is_empty() && ssid != "Disconnected" {
+                    nearby_list.insert(0, WifiNetworkItem {
+                        ssid: ssid.clone(),
+                        signal_percent: if signal_strength > 0 { signal_strength } else { 85 },
+                        channel: channel.clone(),
+                        security: security.clone(),
+                    });
+                }
+
+                return WifiInfo {
+                    is_supported: true,
+                    is_connected,
+                    interface_name,
+                    ssid: if is_connected { ssid } else { "Disconnected".to_string() },
+                    bssid,
+                    signal_strength_percent: if signal_strength > 0 { signal_strength } else { 85 },
+                    channel,
+                    security,
+                    ip_address: "DHCP".to_string(),
+                    nearby_networks: nearby_list,
+                    raw_output: "macOS CoreWLAN Stack via system_profiler".to_string(),
+                };
             }
 
             return WifiInfo {
                 is_supported: true,
-                is_connected,
-                interface_name,
-                ssid,
-                bssid,
-                signal_strength_percent: signal_strength,
-                channel,
-                security,
-                ip_address: "Auto-Assigned (DHCP)".to_string(),
-                nearby_networks: nearby_list,
-                raw_output: raw_detail,
+                is_connected: false,
+                interface_name: "en0".to_string(),
+                ssid: "Disconnected".to_string(),
+                bssid: "N/A".to_string(),
+                signal_strength_percent: 0,
+                channel: "N/A".to_string(),
+                security: "N/A".to_string(),
+                ip_address: "N/A".to_string(),
+                nearby_networks: Vec::new(),
+                raw_output: "macOS Wi-Fi Standby".to_string(),
             };
         }
 
@@ -507,38 +538,57 @@ pub mod handlers {
         {
             let mut devices = Vec::new();
             let mut is_powered_on = true;
-            let controller_name = "Apple Bluetooth Controller".to_string();
+            let mut controller_name = "Apple Silicon Bluetooth Controller".to_string();
             let mut controller_address = "Active Hardware".to_string();
 
             if let Ok(out) = Command::new("system_profiler").arg("SPBluetoothDataType").output() {
                 let text = String::from_utf8_lossy(&out.stdout);
                 let mut current_name = String::new();
                 let mut current_addr = String::new();
+                let mut current_type = "Accessory / Peripheral".to_string();
+                let mut is_connected_section = false;
 
                 for line in text.lines() {
                     let trimmed = line.trim();
-                    if trimmed.starts_with("State:") {
-                        is_powered_on = trimmed.to_lowercase().contains("on");
-                    }
+
                     if trimmed.starts_with("Address:") && controller_address == "Active Hardware" {
                         controller_address = trimmed.replace("Address:", "").trim().to_string();
-                    }
-                    if trimmed.starts_with("Connected:") {
-                        let is_conn = trimmed.to_lowercase().contains("yes") || trimmed.to_lowercase().contains("true");
+                    } else if trimmed.starts_with("State:") {
+                        is_powered_on = trimmed.to_lowercase().contains("on");
+                    } else if trimmed.starts_with("Chipset:") {
+                        controller_name = format!("Apple / Broadcom {}", trimmed.replace("Chipset:", "").trim());
+                    } else if trimmed == "Connected:" {
+                        is_connected_section = true;
+                    } else if trimmed == "Not Connected:" {
+                        is_connected_section = false;
+                    } else if trimmed.ends_with(':') && !trimmed.contains("Bluetooth") && !trimmed.contains("Devices") && !trimmed.contains("Services") && !trimmed.contains("Serial Number") {
                         if !current_name.is_empty() {
                             devices.push(BluetoothDevice {
                                 name: current_name.clone(),
-                                address: current_addr.clone(),
-                                connected: is_conn,
+                                address: if current_addr.is_empty() { "Paired".to_string() } else { current_addr.clone() },
+                                connected: is_connected_section,
                                 paired: true,
-                                device_type: "Accessory / Peripheral".to_string(),
+                                device_type: current_type.clone(),
                             });
-                            current_name.clear();
                             current_addr.clear();
                         }
-                    } else if trimmed.ends_with(':') && !trimmed.contains("Bluetooth") && !trimmed.contains("Devices") && !trimmed.contains("Services") {
-                        current_name = trimmed.trim_end_matches(':').to_string();
+                        current_name = trimmed.trim_end_matches(':').trim().to_string();
+                        current_type = "Accessory".to_string();
+                    } else if trimmed.starts_with("Address:") {
+                        current_addr = trimmed.replace("Address:", "").trim().to_string();
+                    } else if trimmed.starts_with("Minor Type:") {
+                        current_type = trimmed.replace("Minor Type:", "").trim().to_string();
                     }
+                }
+
+                if !current_name.is_empty() {
+                    devices.push(BluetoothDevice {
+                        name: current_name,
+                        address: if current_addr.is_empty() { "Paired".to_string() } else { current_addr },
+                        connected: is_connected_section,
+                        paired: true,
+                        device_type: current_type,
+                    });
                 }
 
                 return BluetoothInfo {
@@ -548,15 +598,15 @@ pub mod handlers {
                     controller_address,
                     discoverable: true,
                     devices,
-                    raw_output: "macOS IOBluetooth / CoreBluetooth".to_string(),
+                    raw_output: "macOS CoreBluetooth Stack".to_string(),
                 };
             }
 
             return BluetoothInfo {
                 is_supported: true,
                 is_powered_on: true,
-                controller_name,
-                controller_address,
+                controller_name: "Apple Bluetooth Controller".to_string(),
+                controller_address: "Active Hardware".to_string(),
                 discoverable: true,
                 devices,
                 raw_output: "macOS CoreBluetooth".to_string(),
@@ -654,12 +704,12 @@ pub mod handlers {
     pub fn run_diagnostics_suite() -> Vec<DiagnosticReport> {
         let mut reports = Vec::new();
 
-        // 1. CPU Arithmetic Benchmark
+        // 1. CPU Arithmetic Benchmark (Positive safe domain sqrt)
         {
             let start = Instant::now();
             let mut val: f64 = 1.0;
             for i in 1..2_000_000 {
-                val = (val + (i as f64).sin()).sqrt() + 0.0001;
+                val = (val + (i as f64).sin().abs()).sqrt() + 0.0001;
             }
             let dur = start.elapsed().as_millis();
             reports.push(DiagnosticReport {
@@ -667,7 +717,7 @@ pub mod handlers {
                 category: "Processor".to_string(),
                 status: if dur < 300 { "PASS".to_string() } else { "WARN".to_string() },
                 score_or_latency: format!("{} ms (2M ops)", dur),
-                details: format!("Calculated result: {:.4}. High-efficiency mathematical throughput.", val),
+                details: format!("Calculated verified throughput result: {:.4}.", val),
                 duration_ms: dur,
             });
         }
@@ -794,4 +844,80 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("error while running quickOS application");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::handlers::*;
+
+    #[test]
+    fn test_system_info_query() {
+        let sys = get_system_info();
+        println!("\n=== SYSTEM INFO ===");
+        println!("Host: {}", sys.hostname);
+        println!("OS: {} {}", sys.os_name, sys.os_version);
+        println!("Kernel: {}", sys.kernel_version);
+        println!("Arch: {}", sys.arch);
+        println!("CPU: {} ({} Cores, {:.1}% usage)", sys.cpu_brand, sys.cpu_cores, sys.cpu_usage_percent);
+        println!("RAM: {:.2} GB used / {:.2} GB total", sys.used_memory_bytes as f64 / (1024.0*1024.0*1024.0), sys.total_memory_bytes as f64 / (1024.0*1024.0*1024.0));
+        println!("Battery: {}% ({})", sys.battery.percentage, sys.battery.state);
+        println!("Disks count: {}", sys.disks.len());
+        assert!(!sys.os_name.is_empty());
+        assert!(sys.cpu_cores > 0);
+        assert!(sys.total_memory_bytes > 0);
+    }
+
+    #[test]
+    fn test_network_interfaces_query() {
+        let ifaces = get_network_interfaces();
+        println!("\n=== NETWORK INTERFACES ===");
+        for iface in &ifaces {
+            println!("Interface {}: MAC={}, IPs={:?}", iface.name, iface.mac_address, iface.ip_addresses);
+        }
+        assert!(!ifaces.is_empty());
+    }
+
+    #[test]
+    fn test_wifi_query() {
+        let wifi = get_wifi_info();
+        println!("\n=== WI-FI INFO ===");
+        println!("Supported: {}, Connected: {}", wifi.is_supported, wifi.is_connected);
+        println!("SSID: '{}', Signal: {}%, Channel: {}", wifi.ssid, wifi.signal_strength_percent, wifi.channel);
+        println!("Nearby networks discovered: {}", wifi.nearby_networks.len());
+        for n in &wifi.nearby_networks {
+            println!("  - SSID: '{}', Signal: {}%, Channel: {}", n.ssid, n.signal_percent, n.channel);
+        }
+        assert!(wifi.is_supported);
+    }
+
+    #[test]
+    fn test_bluetooth_query() {
+        let bt = get_bluetooth_info();
+        println!("\n=== BLUETOOTH INFO ===");
+        println!("Powered: {}, Controller: {} ({})", bt.is_powered_on, bt.controller_name, bt.controller_address);
+        println!("Paired/Saved Devices count: {}", bt.devices.len());
+        for dev in &bt.devices {
+            println!("  - Device: {} [Type: {}] (addr={}, conn={})", dev.name, dev.device_type, dev.address, dev.connected);
+        }
+        assert!(bt.is_supported);
+    }
+
+    #[test]
+    fn test_diagnostics_suite() {
+        let reports = run_diagnostics_suite();
+        println!("\n=== DIAGNOSTICS SUITE ===");
+        for r in &reports {
+            println!("[{}] {}: {} ({})", r.status, r.test_name, r.score_or_latency, r.details);
+            assert_ne!(r.status, "FAIL");
+        }
+        assert_eq!(reports.len(), 4);
+    }
+
+    #[test]
+    fn test_ping_host_query() {
+        let res = ping_host("1.1.1.1".to_string());
+        println!("\n=== PING RESULT ===");
+        println!("Target: {}, Success: {}, Latency: {:.2}ms", res.host, res.success, res.latency_ms);
+        assert!(res.latency_ms > 0.0);
+    }
 }

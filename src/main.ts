@@ -449,6 +449,7 @@ class QuickOSApp {
       const secTag = document.getElementById('wifi-security-tag');
       const bssidTag = document.getElementById('wifi-bssid-tag');
       const sigNum = document.getElementById('wifi-signal-num');
+      const nearbyCont = document.getElementById('nearby-wifi-container');
 
       if (ssidTitle) ssidTitle.textContent = wifi.is_connected ? wifi.ssid : 'Disconnected / Standby';
       if (statusBadge) {
@@ -460,6 +461,28 @@ class QuickOSApp {
       if (secTag) secTag.textContent = `Security: ${wifi.security}`;
       if (bssidTag) bssidTag.textContent = `BSSID: ${wifi.bssid}`;
       if (sigNum) sigNum.textContent = `${wifi.signal_strength_percent}%`;
+
+      if (nearbyCont) {
+        if (!wifi.nearby_networks || wifi.nearby_networks.length === 0) {
+          nearbyCont.innerHTML = '<div class="loading-placeholder">No nearby Wi-Fi broadcast beacons detected.</div>';
+        } else {
+          nearbyCont.innerHTML = wifi.nearby_networks.map(n => `
+            <div class="nearby-wifi-card">
+              <div class="nearby-wifi-top">
+                <span class="nearby-wifi-name" title="${n.ssid}">📶 ${n.ssid}</span>
+                <span class="badge ${n.signal_percent > 70 ? 'badge-success' : 'badge-warning'}">${n.signal_percent}%</span>
+              </div>
+              <div class="progress-track" style="margin: 2px 0;">
+                <div class="progress-bar" style="width: ${n.signal_percent}%;"></div>
+              </div>
+              <div class="nearby-wifi-meta">
+                <span>Ch: ${n.channel}</span>
+                <span>${n.security}</span>
+              </div>
+            </div>
+          `).join('');
+        }
+      }
     } catch (err) {
       console.error("Error reading Wi-Fi info:", err);
     }
@@ -508,13 +531,35 @@ class QuickOSApp {
         if (!bt.devices || bt.devices.length === 0) {
           btCont.innerHTML = '<div class="loading-placeholder">No paired Bluetooth accessories detected.</div>';
         } else {
-          btCont.innerHTML = bt.devices.map(d => `
-            <div class="bt-device-card">
-              <div class="bt-device-name">${d.name}</div>
-              <div class="bt-device-meta">Type: ${d.device_type}</div>
-              <div class="bt-device-meta">Status: <span class="badge ${d.connected ? 'badge-success' : 'badge-warning'}">${d.connected ? 'Connected' : 'Paired'}</span></div>
-            </div>
-          `).join('');
+          btCont.innerHTML = bt.devices.map(d => {
+            let icon = '📡';
+            const lowerName = d.name.toLowerCase();
+            const lowerType = d.device_type.toLowerCase();
+            if (lowerName.includes('airpod') || lowerName.includes('head') || lowerType.includes('headset') || lowerName.includes('wh-') || lowerName.includes('airdopes')) {
+              icon = '🎧';
+            } else if (lowerName.includes('speaker') || lowerName.includes('mhc') || lowerName.includes('sound') || lowerName.includes('stone')) {
+              icon = '🔊';
+            } else if (lowerName.includes('phone') || lowerName.includes('iphone')) {
+              icon = '📱';
+            } else if (lowerName.includes('macbook') || lowerName.includes('laptop')) {
+              icon = '💻';
+            } else if (lowerName.includes('keyboard') || lowerName.includes('key')) {
+              icon = '⌨️';
+            } else if (lowerName.includes('mouse') || lowerName.includes('trackpad')) {
+              icon = '🖱️';
+            }
+
+            return `
+              <div class="bt-device-card">
+                <div class="bt-device-name">${icon} ${d.name}</div>
+                <div class="bt-device-meta">Type: ${d.device_type}</div>
+                <div class="bt-device-meta" style="margin-top: 4px;">
+                  <span class="badge ${d.connected ? 'badge-success' : 'badge-warning'}">${d.connected ? 'Connected' : 'Paired / Saved'}</span>
+                  <span style="float: right; color: var(--text-muted); font-size: 10px;">${d.address}</span>
+                </div>
+              </div>
+            `;
+          }).join('');
         }
       }
     } catch (err) {
