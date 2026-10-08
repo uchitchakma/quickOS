@@ -233,6 +233,9 @@ class QuickOSApp {
   public currentTab = 'overview';
   private currentTheme: 'dark' | 'light' = 'dark';
   private latestSpecs: SystemSpecs | null = null;
+  private activeOSType: 'windows' | 'linux' | 'android' | null = null;
+  private activeOSUrl: string = '';
+  private isFullscreenVM: boolean = false;
 
   init() {
     this.initTheme();
@@ -346,6 +349,159 @@ class QuickOSApp {
     document.getElementById('ping-target-input')?.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') this.executePing();
     });
+
+    // Virtual OS Lab Launchers
+    document.getElementById('btn-launch-win11')?.addEventListener('click', () => this.launchVirtualOS('windows'));
+    document.getElementById('btn-placeholder-win11')?.addEventListener('click', () => this.launchVirtualOS('windows'));
+
+    document.getElementById('btn-launch-linux')?.addEventListener('click', () => this.launchVirtualOS('linux'));
+    document.getElementById('btn-placeholder-linux')?.addEventListener('click', () => this.launchVirtualOS('linux'));
+
+    document.getElementById('btn-launch-android')?.addEventListener('click', () => this.launchVirtualOS('android'));
+    document.getElementById('btn-placeholder-android')?.addEventListener('click', () => this.launchVirtualOS('android'));
+
+    // Virtual OS Viewport Controls
+    document.getElementById('btn-vos-fullscreen')?.addEventListener('click', () => this.toggleFullscreenVM());
+    document.getElementById('btn-vos-popout')?.addEventListener('click', () => this.popoutVirtualOS());
+    document.getElementById('btn-vos-reload')?.addEventListener('click', () => this.reloadVirtualOS());
+    document.getElementById('btn-vos-poweroff')?.addEventListener('click', () => this.closeVirtualOS());
+  }
+
+  public launchVirtualOS(osType: 'windows' | 'linux' | 'android') {
+    this.activeOSType = osType;
+
+    const urls: Record<string, string> = {
+      windows: 'https://win11.blueedge.me',
+      linux: 'https://webvm.io',
+      android: 'https://appetize.io/embed/demo'
+    };
+
+    const names: Record<string, string> = {
+      windows: 'Windows 11 Pro Desktop',
+      linux: 'Ubuntu Linux WebVM',
+      android: 'Android OS Simulator'
+    };
+
+    const badges: Record<string, string> = {
+      windows: 'Running Windows 11',
+      linux: 'Running Ubuntu WebVM',
+      android: 'Running Android OS'
+    };
+
+    this.activeOSUrl = urls[osType] || urls.windows;
+
+    // Highlight active card
+    document.querySelectorAll('.vos-os-card').forEach(c => c.classList.remove('active-running'));
+    const cardMap: Record<string, string> = {
+      windows: 'card-vos-win11',
+      linux: 'card-vos-linux',
+      android: 'card-vos-android'
+    };
+    if (cardMap[osType]) {
+      document.getElementById(cardMap[osType])?.classList.add('active-running');
+    }
+
+    // Update status indicators
+    const statusText = document.getElementById('vos-status-title');
+    const activeBadge = document.getElementById('vos-active-badge');
+    const pulseDot = document.getElementById('vos-pulse-dot');
+    const loaderText = document.getElementById('vos-loader-text');
+
+    if (statusText) statusText.textContent = names[osType];
+    if (activeBadge) {
+      activeBadge.textContent = badges[osType];
+      activeBadge.className = 'badge badge-success';
+    }
+    if (pulseDot) pulseDot.style.backgroundColor = '#10B981';
+    if (loaderText) loaderText.textContent = `Booting ${names[osType]}...`;
+
+    // Show Loader, Hide Placeholder
+    const placeholder = document.getElementById('vos-placeholder');
+    const loader = document.getElementById('vos-loader');
+    const iframe = document.getElementById('vos-iframe') as HTMLIFrameElement | null;
+
+    if (placeholder) placeholder.style.display = 'none';
+    if (loader) loader.style.display = 'flex';
+
+    if (iframe) {
+      iframe.style.display = 'block';
+      iframe.src = this.activeOSUrl;
+
+      iframe.onload = () => {
+        if (loader) loader.style.display = 'none';
+      };
+
+      // Fallback timeout in case iframe doesn't trigger onload
+      setTimeout(() => {
+        if (loader && loader.style.display === 'flex') {
+          loader.style.display = 'none';
+        }
+      }, 3500);
+    }
+
+    // Smooth scroll to virtual viewport
+    document.getElementById('vos-display-container')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
+  public closeVirtualOS() {
+    this.activeOSType = null;
+    this.activeOSUrl = '';
+
+    const iframe = document.getElementById('vos-iframe') as HTMLIFrameElement | null;
+    const placeholder = document.getElementById('vos-placeholder');
+    const loader = document.getElementById('vos-loader');
+    const statusText = document.getElementById('vos-status-title');
+    const activeBadge = document.getElementById('vos-active-badge');
+    const pulseDot = document.getElementById('vos-pulse-dot');
+
+    if (iframe) {
+      iframe.src = 'about:blank';
+      iframe.style.display = 'none';
+    }
+    if (loader) loader.style.display = 'none';
+    if (placeholder) placeholder.style.display = 'flex';
+
+    if (statusText) statusText.textContent = 'Standby';
+    if (activeBadge) {
+      activeBadge.textContent = 'No OS Loaded';
+      activeBadge.className = 'badge badge-neutral';
+    }
+    if (pulseDot) pulseDot.style.backgroundColor = 'var(--text-muted)';
+
+    document.querySelectorAll('.vos-os-card').forEach(c => c.classList.remove('active-running'));
+
+    if (this.isFullscreenVM) {
+      this.toggleFullscreenVM();
+    }
+  }
+
+  public reloadVirtualOS() {
+    if (!this.activeOSType) {
+      this.launchVirtualOS('windows');
+      return;
+    }
+    const os = this.activeOSType;
+    this.launchVirtualOS(os);
+  }
+
+  public toggleFullscreenVM() {
+    const container = document.getElementById('vos-display-container');
+    if (!container) return;
+
+    this.isFullscreenVM = !this.isFullscreenVM;
+    container.classList.toggle('is-fullscreen', this.isFullscreenVM);
+
+    const fsBtn = document.getElementById('btn-vos-fullscreen');
+    if (fsBtn) {
+      fsBtn.innerHTML = this.isFullscreenVM
+        ? `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>`
+        : `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path></svg>`;
+    }
+  }
+
+  public popoutVirtualOS() {
+    const targetUrl = this.activeOSUrl || 'https://win11.blueedge.me';
+    window.open(targetUrl, '_blank', 'width=1280,height=800,menubar=no,status=no,toolbar=no');
   }
 
   private async loadAllData() {
