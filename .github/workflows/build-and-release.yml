@@ -1,0 +1,62 @@
+name: quickOS Multi-Platform CI & Build Matrix
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build-quickos:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: 'macos-latest'
+            os_name: 'macOS (Apple Silicon & Intel)'
+            target: 'universal-apple-darwin'
+          - platform: 'ubuntu-22.04'
+            os_name: 'Ubuntu Linux'
+            target: 'x86_64-unknown-linux-gnu'
+          - platform: 'windows-latest'
+            os_name: 'Windows 11 / 10'
+            target: 'x86_64-pc-windows-msvc'
+
+    runs-on: ${{ matrix.platform }}
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js Environment
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Setup Rust Stable Toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Install Linux Dependencies (Ubuntu)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
+
+      - name: Install Frontend Dependencies
+        run: npm install
+
+      - name: Build Webview Frontend
+        run: npm run build
+
+      - name: Build Tauri 2.0 Binary
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: v__VERSION__
+          releaseName: 'quickOS v__VERSION__'
+          releaseBody: 'Universal Cross-Platform Diagnostics Suite by UCDREAMS TECHNOLOGIES LLP'
+          releaseDraft: true
+          prerelease: false
