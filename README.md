@@ -1,6 +1,6 @@
-# quickOS
-
 <div align="center">
+  <img src="public/app-icon.png" width="120" height="120" alt="quickOS App Icon" style="border-radius: 24px; box-shadow: 0 8px 24px rgba(197,69,62,0.25);" />
+  <h1>quickOS</h1>
   <h3>⚡ Universal Cross-Platform System & Hardware Diagnostics Suite</h3>
   <p><strong>Developed by Uchit Chakma • Owned & Published by UCDREAMS TECHNOLOGIES LLP</strong></p>
   <p>

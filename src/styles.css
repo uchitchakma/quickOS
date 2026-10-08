@@ -101,15 +101,23 @@ body {
 }
 
 .brand-icon {
-  width: 36px;
-  height: 36px;
-  background: linear-gradient(135deg, var(--primary) 0%, #8A2621 100%);
+  width: 38px;
+  height: 38px;
   border-radius: var(--radius-md);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #FFFFFF;
-  box-shadow: 0 4px 12px var(--primary-glow);
+  overflow: hidden;
+  box-shadow: 0 4px 14px var(--primary-glow);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-card);
+}
+
+.brand-logo-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: var(--radius-md);
 }
 
 .brand-title {
