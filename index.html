@@ -51,6 +51,10 @@
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
             <span>Ping & Latency</span>
           </button>
+          <button class="nav-item" data-tab="installers">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+            <span>1-Click Installers</span>
+          </button>
           <button class="nav-item" data-tab="policies">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
             <span>Legal & Credits</span>
@@ -92,6 +96,23 @@
               <div class="mini-bar"><div class="mini-fill" id="mini-ram-fill" style="width: 0%"></div></div>
               <span class="mini-val" id="mini-ram-val">0%</span>
             </div>
+
+            <button id="btn-theme-toggle" class="btn-icon theme-toggle-btn" title="Toggle Light / Dark Mode">
+              <svg class="sun-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="5"></circle>
+                <line x1="12" y1="1" x2="12" y2="3"></line>
+                <line x1="12" y1="21" x2="12" y2="23"></line>
+                <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                <line x1="1" y1="12" x2="3" y2="12"></line>
+                <line x1="21" y1="12" x2="23" y2="12"></line>
+                <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+              </svg>
+              <svg class="moon-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+              </svg>
+            </button>
 
             <button id="btn-refresh" class="btn-icon" title="Refresh Live Data">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -364,7 +385,112 @@
             </div>
           </section>
 
-          <!-- 6. POLICIES & CREDITS TAB -->
+          <!-- 6. 1-CLICK INSTALLERS & OS GUIDE TAB -->
+          <section id="view-installers" class="view-panel">
+            <div class="view-header">
+              <div>
+                <h2 class="view-title">1-Click Installation on Any OS</h2>
+                <p class="view-desc">Designed for everyone: Download the file for your system, double-click, and start testing!</p>
+              </div>
+            </div>
+
+            <div class="grid-2">
+              <!-- WINDOWS CARD -->
+              <div class="card os-install-card">
+                <div class="os-card-header">
+                  <div class="os-icon win-icon">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M0 3.449L9.75 2.1v9.451H0m10.949-9.602L24 0v11.4H10.949M0 12.6h9.75v9.451L0 20.699M10.949 12.6H24V24l-12.9-1.801"/>
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 class="os-name">Windows 10 / 11</h3>
+                    <span class="badge badge-success">Single-Click .exe / .msi</span>
+                  </div>
+                </div>
+                <div class="os-card-body">
+                  <div class="step-list">
+                    <div class="step-item"><span class="step-num">1</span><span>Download <code>quickOS-Setup.exe</code></span></div>
+                    <div class="step-item"><span class="step-num">2</span><span>Double-click the downloaded file</span></div>
+                    <div class="step-item"><span class="step-num">3</span><span>quickOS opens immediately with a Desktop icon!</span></div>
+                  </div>
+                  <div class="os-footer-note">⚡ No commands, no technical setup needed.</div>
+                </div>
+              </div>
+
+              <!-- UBUNTU / LINUX CARD -->
+              <div class="card os-install-card">
+                <div class="os-card-header">
+                  <div class="os-icon linux-icon">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                      <circle cx="12" cy="12" r="10"></circle>
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 class="os-name">Ubuntu / Debian Linux</h3>
+                    <span class="badge badge-success">.AppImage / .deb Package</span>
+                  </div>
+                </div>
+                <div class="os-card-body">
+                  <div class="step-list">
+                    <div class="step-item"><span class="step-num">1</span><span>Download <code>quickOS.AppImage</code> or <code>.deb</code></span></div>
+                    <div class="step-item"><span class="step-num">2</span><span>Double-click the file</span></div>
+                    <div class="step-item"><span class="step-num">3</span><span>The diagnostic suite launches instantly!</span></div>
+                  </div>
+                  <div class="os-footer-note">⚡ Works on Ubuntu 22.04+, Debian, Fedora, Mint.</div>
+                </div>
+              </div>
+
+              <!-- MACOS CARD -->
+              <div class="card os-install-card">
+                <div class="os-card-header">
+                  <div class="os-icon mac-icon">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M15.97 6.85c.66-.82 1.11-1.96.99-3.1-.96.04-2.12.64-2.8 1.44-.6.69-1.12 1.83-.98 2.94 1.07.08 2.14-.46 2.79-1.28z"/>
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 class="os-name">macOS (Apple Silicon & Intel)</h3>
+                    <span class="badge badge-success">Universal .dmg Disk Image</span>
+                  </div>
+                </div>
+                <div class="os-card-body">
+                  <div class="step-list">
+                    <div class="step-item"><span class="step-num">1</span><span>Open <code>quickOS.dmg</code></span></div>
+                    <div class="step-item"><span class="step-num">2</span><span>Drag quickOS into Applications</span></div>
+                    <div class="step-item"><span class="step-num">3</span><span>Click to launch from Launchpad / Spotlight!</span></div>
+                  </div>
+                  <div class="os-footer-note">⚡ Native M1/M2/M3/M4 & Intel Mac support.</div>
+                </div>
+              </div>
+
+              <!-- MOBILE CARD -->
+              <div class="card os-install-card">
+                <div class="os-card-header">
+                  <div class="os-icon mobile-icon">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>
+                      <line x1="12" y1="18" x2="12.01" y2="18"></line>
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 class="os-name">Android & iOS Ready</h3>
+                    <span class="badge badge-success">APK & Mobile Package</span>
+                  </div>
+                </div>
+                <div class="os-card-body">
+                  <div class="step-list">
+                    <div class="step-item"><span class="step-num">1</span><span>Download <code>quickOS.apk</code> for Android</span></div>
+                    <div class="step-item"><span class="step-num">2</span><span>Tap to install on any phone/tablet</span></div>
+                    <div class="step-item"><span class="step-num">3</span><span>Touch-optimized mobile diagnostics!</span></div>
+                  </div>
+                  <div class="os-footer-note">⚡ iOS supported via TestFlight / Xcode.</div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- 7. POLICIES & CREDITS TAB -->
           <section id="view-policies" class="view-panel">
             <div class="view-header">
               <div>

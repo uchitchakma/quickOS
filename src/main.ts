@@ -1,3 +1,5 @@
+import { invoke } from '@tauri-apps/api/core';
+
 // quickOS - Universal Diagnostics & Hardware Suite
 // Developer: Uchit Chakma (uchitchakma.com)
 // Owner: UCDREAMS TECHNOLOGIES LLP (ucdreams.com)
@@ -101,15 +103,14 @@ interface PingResult {
   raw_output: string;
 }
 
-// Global invocation helper (safely detects Tauri runtime or browser fallback)
+// Global invocation helper (safely connects to Tauri native core with browser fallback)
 async function invokeBackend<T>(cmd: string, args: Record<string, unknown> = {}): Promise<T> {
-  const tauri = (window as unknown as { __TAURI__?: { core?: { invoke: <R>(c: string, a?: Record<string, unknown>) => Promise<R> } } }).__TAURI__;
-  if (tauri && tauri.core && typeof tauri.core.invoke === 'function') {
-    return await tauri.core.invoke<T>(cmd, args);
+  try {
+    return await invoke<T>(cmd, args);
+  } catch (err) {
+    console.warn(`[Tauri IPC fallback] Command '${cmd}' using preview provider:`, err);
+    return mockBackendResponse<T>(cmd, args);
   }
-
-  // Browser / Preview Mock Fallback
-  return mockBackendResponse<T>(cmd, args);
 }
 
 function mockBackendResponse<T>(cmd: string, args: Record<string, unknown>): T {
@@ -230,9 +231,11 @@ function formatUptime(seconds: number): string {
 // APP CONTROLLER
 class QuickOSApp {
   public currentTab = 'overview';
+  private currentTheme: 'dark' | 'light' = 'dark';
   private latestSpecs: SystemSpecs | null = null;
 
   init() {
+    this.initTheme();
     this.setupTabs();
     this.setupActions();
     this.loadAllData();
@@ -241,6 +244,23 @@ class QuickOSApp {
     setInterval(() => {
       this.refreshSystemSpecs(true);
     }, 4000);
+  }
+
+  private initTheme() {
+    const savedTheme = (localStorage.getItem('quickos-theme') as 'dark' | 'light') || 
+      (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+    this.setTheme(savedTheme);
+  }
+
+  public setTheme(theme: 'dark' | 'light') {
+    this.currentTheme = theme;
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('quickos-theme', theme);
+  }
+
+  public toggleTheme() {
+    const nextTheme = this.currentTheme === 'dark' ? 'light' : 'dark';
+    this.setTheme(nextTheme);
   }
 
   private setupTabs() {
@@ -278,6 +298,11 @@ class QuickOSApp {
   }
 
   private setupActions() {
+    // Theme toggle button
+    document.getElementById('btn-theme-toggle')?.addEventListener('click', () => {
+      this.toggleTheme();
+    });
+
     // Refresh Topbar button
     document.getElementById('btn-refresh')?.addEventListener('click', () => {
       this.loadAllData();
