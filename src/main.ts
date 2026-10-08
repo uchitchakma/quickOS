@@ -223,7 +223,7 @@ function formatUptime(seconds: number): string {
   const d = Math.floor(seconds / (3600 * 24));
   const h = Math.floor((seconds % (3600 * 24)) / 3600);
   const m = Math.floor((seconds % 3600) / 60);
-  if (d > 0) return `${d}d ${h}h ${m}m`;
+  if (d > 0) return `${d}d ${h}h`;
   if (h > 0) return `${h}h ${m}m`;
   return `${m}m ${seconds % 60}s`;
 }
@@ -370,12 +370,15 @@ class QuickOSApp {
   private renderOverview(s: SystemSpecs) {
     // Header tags
     const headerOs = document.getElementById('header-os-name');
-    if (headerOs) headerOs.textContent = `${s.os_name} ${s.os_version}`;
+    if (headerOs) {
+      const osPretty = s.os_name.toLowerCase().includes('darwin') ? `macOS ${s.os_version}` : `${s.os_name} ${s.os_version}`;
+      headerOs.textContent = osPretty;
+    }
 
     const headerArch = document.getElementById('header-arch');
     if (headerArch) headerArch.textContent = s.arch.toUpperCase();
 
-    // Mini CPU/RAM meters
+    // Mini CPU/RAM meters in topbar
     const miniCpuVal = document.getElementById('mini-cpu-val');
     const miniCpuFill = document.getElementById('mini-cpu-fill');
     if (miniCpuVal && miniCpuFill) {
@@ -410,7 +413,7 @@ class QuickOSApp {
     const ramProg = document.getElementById('ram-progress');
     const ramFreeDisp = document.getElementById('ram-free-display');
     if (ramUsedDisp) ramUsedDisp.textContent = `${ramUsedGB} GB`;
-    if (ramTotalDisp) ramTotalDisp.textContent = `/ ${ramTotalGB} GB`;
+    if (ramTotalDisp) ramTotalDisp.textContent = `of ${ramTotalGB} GB`;
     if (ramProg) ramProg.style.width = `${ramPct}%`;
     if (ramFreeDisp) ramFreeDisp.textContent = `Free: ${(s.free_memory_bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
 
@@ -456,10 +459,10 @@ class QuickOSApp {
           return `
             <div class="disk-item">
               <div class="disk-item-top">
-                <span>📁 ${d.name || d.mount_point} (${d.file_system || 'Drive'})</span>
-                <span>${diskPct}% Used</span>
+                <span>💽 ${d.name || d.mount_point} (${d.file_system || 'Drive'})</span>
+                <span class="badge ${diskPct > 85 ? 'badge-warning' : 'badge-success'}">${diskPct}% Used</span>
               </div>
-              <div class="progress-track">
+              <div class="progress-track" style="margin: 6px 0;">
                 <div class="progress-bar" style="width: ${diskPct}%"></div>
               </div>
               <div class="disk-item-stats">

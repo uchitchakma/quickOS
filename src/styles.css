@@ -385,7 +385,8 @@ body {
 .content-scroll {
   flex: 1;
   overflow-y: auto;
-  padding: 24px;
+  overflow-x: hidden;
+  padding: 20px 24px;
 }
 
 .view-panel {
@@ -415,18 +416,18 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 20px;
+  margin-bottom: 16px;
 }
 
 .view-title {
-  font-size: 20px;
+  font-size: 19px;
   font-weight: 800;
   color: var(--text-primary);
   letter-spacing: -0.3px;
 }
 
 .view-desc {
-  font-size: 12.5px;
+  font-size: 12px;
   color: var(--text-muted);
   margin-top: 2px;
 }
@@ -435,86 +436,109 @@ body {
 .card {
   background-color: var(--bg-card);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-lg);
-  padding: 18px 20px;
-  margin-bottom: 18px;
+  border-radius: var(--radius-md);
+  padding: 16px 18px;
+  margin-bottom: 14px;
   box-shadow: var(--card-shadow);
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
 }
 
 .card-heading {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 700;
   color: var(--text-primary);
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 14px;
+  margin-bottom: 12px;
   border-bottom: 1px solid var(--border-subtle);
-  padding-bottom: 10px;
+  padding-bottom: 8px;
 }
 
 .grid-4 {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
-  margin-bottom: 18px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 14px;
 }
 
 .grid-2 {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 18px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  align-items: stretch;
 }
 
 /* STAT CARDS */
 .stat-card {
-  padding: 16px;
+  padding: 13px 15px;
   margin-bottom: 0;
   display: flex;
   flex-direction: column;
+  justify-content: space-between;
+  min-width: 0;
+  height: 100%;
+  min-height: 120px;
+  border-radius: var(--radius-md);
 }
 
 .stat-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
+  min-width: 0;
 }
 
 .stat-title {
-  font-size: 11.5px;
+  font-size: 10.5px;
   font-weight: 700;
   color: var(--text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .stat-icon {
-  font-size: 14px;
+  font-size: 13px;
+  opacity: 0.85;
 }
 
 .stat-main {
   display: flex;
   align-items: baseline;
+  justify-content: space-between;
   gap: 6px;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
+  min-width: 0;
 }
 
 .stat-number {
   font-family: var(--font-mono);
-  font-size: 22px;
+  font-size: 19px;
   font-weight: 800;
   color: var(--text-primary);
+  line-height: 1.1;
+  white-space: nowrap;
+  letter-spacing: -0.5px;
 }
 
 .stat-sub {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--text-muted);
   font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: right;
 }
 
 .progress-track {
-  height: 6px;
+  height: 5px;
   background-color: var(--border-subtle);
   border-radius: 3px;
   overflow: hidden;
@@ -529,70 +553,79 @@ body {
 }
 
 .stat-footer {
-  font-size: 11.5px;
+  font-size: 11px;
   color: var(--text-secondary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   font-weight: 500;
+  min-height: 16px;
 }
 
 /* SPEC TABLES */
 .spec-table {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
+  flex: 1;
+  justify-content: space-between;
 }
 
 .spec-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 9px 12px;
+  padding: 8px 10px;
   background-color: var(--bg-card-hover);
   border-radius: var(--radius-sm);
   border: 1px solid var(--border-subtle);
+  font-size: 12px;
 }
 
 .spec-label {
   color: var(--text-secondary);
-  font-size: 12px;
   font-weight: 600;
 }
 
 .spec-value {
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: 11.5px;
   color: var(--text-primary);
   font-weight: 700;
+  background: var(--bg-card);
+  padding: 2px 7px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
 }
 
 /* STORAGE DISKS */
 .disks-list {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
+  flex: 1;
 }
 
 .disk-item {
   background: var(--bg-card-hover);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
-  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
 }
 
 .disk-item-top {
   display: flex;
   justify-content: space-between;
-  margin-bottom: 6px;
-  font-size: 12.5px;
+  align-items: center;
+  margin-bottom: 4px;
+  font-size: 12px;
   font-weight: 700;
   color: var(--text-primary);
 }
 
 .disk-item-stats {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 10.5px;
   color: var(--text-muted);
   display: flex;
   justify-content: space-between;

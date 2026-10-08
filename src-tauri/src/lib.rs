@@ -122,8 +122,8 @@ pub mod handlers {
                 let out_str = String::from_utf8_lossy(&output.stdout).to_string();
                 if out_str.contains('%') {
                     let mut percent = 100u8;
-                    let mut state = "AC Attached".to_string();
-                    let mut time_rem = "Calculating...".to_string();
+                    let mut state = "AC Line".to_string();
+                    let mut time_rem = "Power Adapter Attached".to_string();
 
                     for line in out_str.lines() {
                         if let Some(pct_idx) = line.find('%') {
@@ -134,16 +134,35 @@ pub mod handlers {
                                 }
                             }
                         }
-                        if line.contains("discharging") {
-                            state = "Discharging (Battery)".to_string();
-                        } else if line.contains("charging") {
+                        let lower = line.to_lowercase();
+                        if lower.contains("discharging") {
+                            state = "On Battery".to_string();
+                            if let Some(rem_idx) = lower.find("remaining") {
+                                let rem_part = &line[..rem_idx];
+                                if let Some(semi_idx) = rem_part.rfind(';') {
+                                    time_rem = format!("{} remaining", rem_part[semi_idx + 1..].trim());
+                                } else {
+                                    time_rem = "On Battery Power".to_string();
+                                }
+                            } else {
+                                time_rem = "On Battery Power".to_string();
+                            }
+                        } else if lower.contains("charging") && !lower.contains("discharging") && !lower.contains("finishing charge") {
                             state = "Charging".to_string();
-                        } else if line.contains("charged") || line.contains("finishing charge") {
-                            state = "Full (100%)".to_string();
-                        }
-
-                        if line.contains("remaining") || line.contains("present") {
-                            time_rem = line.trim().to_string();
+                            if let Some(rem_idx) = lower.find("remaining") {
+                                let rem_part = &line[..rem_idx];
+                                if let Some(semi_idx) = rem_part.rfind(';') {
+                                    let t = rem_part[semi_idx + 1..].trim();
+                                    time_rem = if t == "0:00" { "Finishing charge".to_string() } else { format!("{} to full", t) };
+                                } else {
+                                    time_rem = "Fast Charging (AC)".to_string();
+                                }
+                            } else {
+                                time_rem = "Connected to AC Power".to_string();
+                            }
+                        } else if lower.contains("charged") || lower.contains("finishing charge") {
+                            state = "100% (Full)".to_string();
+                            time_rem = "Power Adapter Connected".to_string();
                         }
                     }
 
@@ -241,17 +260,31 @@ pub mod handlers {
         let uptime_seconds = System::uptime();
 
         let disks_provider = Disks::new_with_refreshed_list();
-        let disks = disks_provider
-            .iter()
-            .map(|d| DiskInfo {
-                name: d.name().to_string_lossy().to_string(),
-                mount_point: d.mount_point().to_string_lossy().to_string(),
-                total_bytes: d.total_space(),
-                available_bytes: d.available_space(),
-                file_system: d.file_system().to_string_lossy().to_string(),
-                is_removable: d.is_removable(),
-            })
-            .collect();
+        let mut disks: Vec<DiskInfo> = Vec::new();
+        let mut seen_roots = std::collections::HashSet::new();
+
+        for d in disks_provider.iter() {
+            let mount = d.mount_point().to_string_lossy().to_string();
+            let name = d.name().to_string_lossy().to_string();
+            let total = d.total_space();
+
+            // Skip internal virtual partitions on macOS (e.g. /System/Volumes/Data, /System/Volumes/Preboot, /private/var/vm)
+            if mount.starts_with("/System/Volumes/") || mount.starts_with("/private/") || mount.starts_with("/dev") {
+                continue;
+            }
+
+            let key = format!("{}-{}-{}", name, mount, total);
+            if seen_roots.insert(key) {
+                disks.push(DiskInfo {
+                    name: if name.is_empty() { "Macintosh HD".to_string() } else { name },
+                    mount_point: mount,
+                    total_bytes: total,
+                    available_bytes: d.available_space(),
+                    file_system: d.file_system().to_string_lossy().to_string(),
+                    is_removable: d.is_removable(),
+                });
+            }
+        }
 
         let battery = get_cross_platform_battery();
 
