@@ -31,7 +31,7 @@
           </button>
           <button class="nav-item" data-tab="virtual-os">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
-            <span>▶ Run Virtual OS</span>
+            <span>Virtual OS Lab</span>
           </button>
           <button class="nav-item" data-tab="wifi">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"></path><path d="M1.42 9a16 16 0 0 1 21.16 0"></path><path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><line x1="12" y1="20" x2="12.01" y2="20"></line></svg>
@@ -254,12 +254,20 @@
               </div>
             </div>
 
-            <!-- Mode Selector Switcher -->
+            <!-- Mode Selector Switcher (Icons Only - No Emojis) -->
             <div class="vm-tab-switcher">
-              <button class="vm-tab-btn active" data-vm-tab="native-win11">🪟 Real Windows 11 Native VM</button>
-              <button class="vm-tab-btn" data-vm-tab="native-linux">🐧 Real Ubuntu Linux Native VM</button>
-              <button class="vm-tab-btn" data-vm-tab="wine-exe">🚀 Run Windows .exe Directly</button>
-              <button class="vm-tab-btn" data-vm-tab="cloud-sandbox">🌐 Instant WebVM Sandbox</button>
+              <button class="vm-tab-btn active" data-vm-tab="native-win11">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M0 3.449L9.75 2.1v9.451H0m10.949-9.602L24 0v11.4H10.949M0 12.6h9.75v9.451L0 20.699M10.949 12.6H24V24l-12.95-1.801"/></svg>
+                <span>Windows 11 Native VM</span>
+              </button>
+              <button class="vm-tab-btn" data-vm-tab="native-linux">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
+                <span>Ubuntu Linux Native VM</span>
+              </button>
+              <button class="vm-tab-btn" data-vm-tab="wine-exe">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+                <span>Run Windows .exe Directly</span>
+              </button>
             </div>
 
             <!-- TAB 1: REAL WINDOWS 11 NATIVE VM -->
@@ -307,7 +315,7 @@
                   </div>
 
                   <div class="form-group">
-                    <label class="form-label">Windows 11 ARM64 Installation ISO / Media (Optional)</label>
+                    <label class="form-label">Windows 11 ARM64 Installation ISO / Media</label>
                     <input type="text" id="win-cfg-iso" class="form-input" placeholder="e.g. /Users/you/Downloads/Win11_ARM64.iso" />
                     <span class="form-hint">Leave empty if you already have an installed disk image.</span>
                   </div>
@@ -315,34 +323,52 @@
                   <div class="vm-action-bar">
                     <button id="btn-start-native-win11" class="btn-primary btn-large w-100">
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
-                      ▶ Boot Real Native Windows 11 VM
+                      Boot Real Native Windows 11 VM
                     </button>
                   </div>
                 </div>
 
-                <!-- Windows 11 Guides & 1-Click Provisioning -->
+                <!-- Windows 11 Guides & Direct Official Download Options -->
                 <div class="card">
                   <h3 class="card-heading">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 14 14"></polyline></svg>
-                    1-Click Windows 11 Resources
+                    Windows 11 ARM64 Image Downloads
                   </h3>
 
+                  <!-- Option 1: Direct UUP dump (No login required) -->
                   <div class="resource-block">
-                    <div class="resource-title">1. Official Microsoft Windows 11 ARM64 ISO</div>
-                    <p class="resource-desc">Download the official Microsoft Windows 11 Insider Preview / Developer ARM64 VHDX or ISO built for Apple Silicon Macs.</p>
-                    <a href="https://www.microsoft.com/en-us/software-download/windowsinsiderpreviewARM64" target="_blank" class="btn-secondary btn-sm" style="text-decoration: none; display: inline-flex; align-items: center; gap: 6px;">
+                    <div class="resource-title">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                      1. UUP dump — Direct Windows 11 ARM64 (No Login Required)
+                    </div>
+                    <p class="resource-desc">Directly fetches and generates the official Microsoft Windows 11 ARM64 ISO straight from Microsoft Update servers with zero account sign-in.</p>
+                    <a href="https://uupdump.net/known.php?q=Windows+11+arm64" target="_blank" class="btn-secondary btn-sm" style="text-decoration: none; display: inline-flex; align-items: center; gap: 6px;">
                       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
-                      Download Official Windows 11 ARM ISO (Microsoft)
+                      Open UUP dump Windows 11 ARM64 Builds
                     </a>
                   </div>
 
-                  <div class="resource-block" style="margin-top: 14px;">
-                    <div class="resource-title">2. Native Hardware Acceleration Features</div>
+                  <!-- Option 2: Official Microsoft Download Center -->
+                  <div class="resource-block" style="margin-top: 12px;">
+                    <div class="resource-title">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+                      2. Microsoft Official Windows 11 Download Center
+                    </div>
+                    <p class="resource-desc">Official Microsoft software portal for genuine Windows 11 installation media and Multi-edition ISOs.</p>
+                    <a href="https://www.microsoft.com/software-download/windows11" target="_blank" class="btn-secondary btn-sm" style="text-decoration: none; display: inline-flex; align-items: center; gap: 6px;">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+                      Open Microsoft Software Download Center
+                    </a>
+                  </div>
+
+                  <!-- Hardware Features List -->
+                  <div class="resource-block" style="margin-top: 12px;">
+                    <div class="resource-title">Hardware Acceleration Features</div>
                     <ul class="feature-bullets">
-                      <li>⚡ <strong>Paravirtualized NVMe:</strong> Ultra-fast SSD disk read/write speeds over APFS.</li>
-                      <li>🎮 <strong>Metal 3 GPU Framebuffer:</strong> 60 FPS smooth native graphics rendering.</li>
-                      <li>🌐 <strong>Bridged NAT Networking:</strong> Full internet connectivity inside the VM.</li>
-                      <li>📋 <strong>Shared Clipboard & Audio:</strong> Audio streaming directly to your Mac speakers.</li>
+                      <li><strong>Paravirtualized NVMe:</strong> Ultra-fast SSD disk read/write speeds over APFS.</li>
+                      <li><strong>Metal 3 GPU Framebuffer:</strong> 60 FPS smooth native graphics rendering.</li>
+                      <li><strong>Bridged NAT Networking:</strong> Full internet connectivity inside the VM.</li>
+                      <li><strong>Shared Clipboard & Audio:</strong> Audio streaming directly to your Mac speakers.</li>
                     </ul>
                   </div>
 
@@ -402,7 +428,7 @@
                   <div class="vm-action-bar">
                     <button id="btn-start-native-linux" class="btn-primary btn-large w-100">
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
-                      ▶ Boot Real Native Ubuntu Linux VM
+                      Boot Real Native Ubuntu Linux VM
                     </button>
                   </div>
                 </div>
@@ -414,7 +440,7 @@
                   </h3>
 
                   <div class="resource-block">
-                    <div class="resource-title">Official Ubuntu 24.04 LTS ARM64 Server/Desktop</div>
+                    <div class="resource-title">Official Ubuntu 24.04 LTS ARM64 Server / Desktop</div>
                     <p class="resource-desc">Canonical provides pre-built official ARM64 installation images with full Linux kernel and apt package ecosystem.</p>
                     <a href="https://ubuntu.com/download/server/arm" target="_blank" class="btn-secondary btn-sm" style="text-decoration: none; display: inline-flex; align-items: center; gap: 6px;">
                       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
@@ -453,7 +479,7 @@
                     <input type="text" id="wine-exe-path" class="form-input" placeholder="e.g. /Users/you/Downloads/NotepadPlusPlus.exe" />
                     <button id="btn-run-wine-exe" class="btn-primary">
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
-                      ▶ Run .exe Natively on Mac
+                      Run .exe Natively on Mac
                     </button>
                   </div>
                 </div>
@@ -461,146 +487,6 @@
                 <div class="status-box" id="wine-status-box" style="margin-top: 14px;">
                   <span class="pulse-dot" id="wine-pulse-dot" style="background-color: var(--info);"></span>
                   <span id="wine-status-text">Enter the path to any Windows .exe or .msi file and click 'Run .exe Natively on Mac'.</span>
-                </div>
-              </div>
-            </div>
-
-            <!-- TAB 4: INSTANT CLOUD / WEBVM SANDBOX -->
-            <div id="vm-panel-cloud-sandbox" class="vm-mode-panel">
-              <!-- OS Quick Launcher Grid -->
-              <div class="vos-cards-grid">
-                <!-- Windows 11 Card -->
-                <div class="card vos-os-card" id="card-vos-win11">
-                  <div class="vos-card-header">
-                    <div class="vos-card-icon win-icon">
-                      <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M0 3.449L9.75 2.1v9.451H0m10.949-9.602L24 0v11.4H10.949M0 12.6h9.75v9.451L0 20.699M10.949 12.6H24V24l-12.95-1.801"/>
-                      </svg>
-                    </div>
-                    <div class="vos-card-meta">
-                      <span class="badge badge-info">Interactive Desktop</span>
-                      <h3 class="vos-card-title">Windows 11 Pro</h3>
-                    </div>
-                  </div>
-                  <p class="vos-card-desc">Interactive Windows 11 desktop with Start Menu, Edge Browser, Terminal, File Explorer, Notepad, and Calculator.</p>
-                  <div class="vos-card-footer">
-                    <button id="btn-launch-win11" class="btn-primary w-100">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
-                      Boot Windows 11 Sandbox
-                    </button>
-                  </div>
-                </div>
-
-                <!-- Ubuntu Linux Card -->
-                <div class="card vos-os-card" id="card-vos-linux">
-                  <div class="vos-card-header">
-                    <div class="vos-card-icon linux-icon">
-                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <polyline points="4 17 10 11 4 5"></polyline>
-                        <line x1="12" y1="19" x2="20" y2="19"></line>
-                      </svg>
-                    </div>
-                    <div class="vos-card-meta">
-                      <span class="badge badge-warning">Live WebVM Shell</span>
-                      <h3 class="vos-card-title">Ubuntu Linux</h3>
-                    </div>
-                  </div>
-                  <p class="vos-card-desc">Real-time Linux environment with interactive bash shell, core utilities, package management, and diagnostics.</p>
-                  <div class="vos-card-footer">
-                    <button id="btn-launch-linux" class="btn-secondary w-100">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
-                      Boot Ubuntu Linux Sandbox
-                    </button>
-                  </div>
-                </div>
-
-                <!-- Android OS Card -->
-                <div class="card vos-os-card" id="card-vos-android">
-                  <div class="vos-card-header">
-                    <div class="vos-card-icon android-icon">
-                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>
-                        <line x1="12" y1="18" x2="12.01" y2="18"></line>
-                      </svg>
-                    </div>
-                    <div class="vos-card-meta">
-                      <span class="badge badge-success">Mobile Simulator</span>
-                      <h3 class="vos-card-title">Android OS</h3>
-                    </div>
-                  </div>
-                  <p class="vos-card-desc">Interactive mobile operating system interface to test mobile apps, touch navigation, and responsive layouts.</p>
-                  <div class="vos-card-footer">
-                    <button id="btn-launch-android" class="btn-secondary w-100">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
-                      Boot Android OS Sandbox
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Active Virtual Machine Screen Card -->
-              <div class="card vos-viewport-card">
-                <!-- Toolbar -->
-                <div class="vos-toolbar">
-                  <div class="vos-toolbar-left">
-                    <div class="vos-status">
-                      <span class="pulse-dot" id="vos-pulse-dot" style="background-color: var(--text-muted);"></span>
-                      <span id="vos-status-title" class="vos-status-title">Standby</span>
-                    </div>
-                    <span id="vos-active-badge" class="badge badge-neutral">No OS Loaded</span>
-                  </div>
-
-                  <div class="vos-toolbar-right">
-                    <button id="btn-vos-fullscreen" class="btn-icon" title="Toggle Fullscreen Mode">
-                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path></svg>
-                    </button>
-                    <button id="btn-vos-popout" class="btn-icon" title="Open in Dedicated External Window">
-                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
-                    </button>
-                    <button id="btn-vos-reload" class="btn-icon" title="Restart Virtual OS Session">
-                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
-                    </button>
-                    <button id="btn-vos-poweroff" class="btn-icon btn-danger-subtle" title="Power Off / Terminate Virtual OS">
-                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path><line x1="12" y1="2" x2="12" y2="12"></line></svg>
-                    </button>
-                  </div>
-                </div>
-
-                <!-- Virtual Machine Display Container -->
-                <div class="vos-display-container" id="vos-display-container">
-                  <!-- Standby Placeholder -->
-                  <div id="vos-placeholder" class="vos-placeholder-screen">
-                    <div class="vos-placeholder-content">
-                      <div class="vos-placeholder-icon">
-                        <svg width="54" height="54" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
-                      </div>
-                      <h3>Ready to Boot Sandbox OS</h3>
-                      <p>Select an operating system to start a live interactive desktop session with zero local storage impact.</p>
-                      <div class="vos-quick-buttons">
-                        <button id="btn-placeholder-win11" class="btn-primary">🪟 Boot Windows 11 Pro</button>
-                        <button id="btn-placeholder-linux" class="btn-secondary">🐧 Boot Ubuntu Linux</button>
-                        <button id="btn-placeholder-android" class="btn-secondary">🤖 Boot Android OS</button>
-                      </div>
-                    </div>
-                  </div>
-
-                  <!-- Loading State Overlay -->
-                  <div id="vos-loader" class="vos-loader-screen" style="display: none;">
-                    <div class="spinner"></div>
-                    <div class="vos-loader-text" id="vos-loader-text">Booting Virtual Environment...</div>
-                    <div class="vos-loader-subtext">Initializing sandboxed display and system services</div>
-                  </div>
-
-                  <!-- Live Iframe Viewport -->
-                  <iframe 
-                    id="vos-iframe" 
-                    class="vos-screen-frame" 
-                    style="display: none;" 
-                    src="" 
-                    allow="clipboard-read; clipboard-write; fullscreen; camera; microphone; geolocation"
-                    sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-downloads allow-pointer-lock"
-                    title="quickOS Virtual OS Viewport"
-                  ></iframe>
                 </div>
               </div>
             </div>
