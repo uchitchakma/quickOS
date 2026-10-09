@@ -1089,6 +1089,56 @@ pub mod handlers {
         }
         Ok(vms_dir)
     }
+
+    #[tauri::command]
+    pub fn pick_vm_directory(prompt: Option<String>) -> Result<String, String> {
+        let p = prompt.unwrap_or_else(|| "Select SSD, HDD, or Folder for Virtual Machine Storage".to_string());
+        #[cfg(target_os = "macos")]
+        {
+            let script = format!(r#"POSIX path of (choose folder with prompt "{}")"#, p);
+            let output = Command::new("osascript").args(["-e", &script]).output()
+                .map_err(|e| format!("Failed to open folder picker: {}", e))?;
+            if output.status.success() {
+                let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
+                if !path.is_empty() {
+                    return Ok(path);
+                }
+            }
+            return Err("Cancelled by user".to_string());
+        }
+        #[cfg(not(target_os = "macos"))]
+        {
+            let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
+            Ok(format!("{}/quickOS-VMs", home))
+        }
+    }
+
+    #[tauri::command]
+    pub fn pick_vm_file(prompt: Option<String>, file_types: Option<Vec<String>>) -> Result<String, String> {
+        let p = prompt.unwrap_or_else(|| "Select Image or Application File".to_string());
+        #[cfg(target_os = "macos")]
+        {
+            let types_str = if let Some(types) = file_types {
+                types.iter().map(|t| format!(r#""{}""#, t)).collect::<Vec<_>>().join(", ")
+            } else {
+                r#""iso", "img", "raw", "vhdx", "dmg", "exe", "msi""#.to_string()
+            };
+            let script = format!(r#"POSIX path of (choose file with prompt "{}" of type {{{}}})"#, p, types_str);
+            let output = Command::new("osascript").args(["-e", &script]).output()
+                .map_err(|e| format!("Failed to open file picker: {}", e))?;
+            if output.status.success() {
+                let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
+                if !path.is_empty() {
+                    return Ok(path);
+                }
+            }
+            return Err("Cancelled by user".to_string());
+        }
+        #[cfg(not(target_os = "macos"))]
+        {
+            Err("File picker not supported on this platform".to_string())
+        }
+    }
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -1107,7 +1157,9 @@ pub fn run() {
             handlers::start_native_vm,
             handlers::run_windows_exe,
             handlers::create_vm_disk,
-            handlers::open_vms_folder
+            handlers::open_vms_folder,
+            handlers::pick_vm_directory,
+            handlers::pick_vm_file
         ])
         .run(tauri::generate_context!())
         .expect("error while running quickOS application");

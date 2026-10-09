@@ -285,6 +285,21 @@
                     <span class="badge badge-info">Genuine OS Engine</span>
                   </div>
 
+                  <!-- Storage Target Drive Picker (SSD / HDD) -->
+                  <div class="form-group">
+                    <label class="form-label">Storage Target Drive (SSD / HDD / Internal)</label>
+                    <div class="input-action-row">
+                      <select id="win-cfg-drive-select" class="form-select">
+                        <option value="default">Default Internal Drive (~/quickOS-VMs)</option>
+                      </select>
+                      <button id="btn-browse-win-folder" class="btn-secondary" title="Select custom folder on External SSD or HDD">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+                        Browse Drive...
+                      </button>
+                    </div>
+                    <span class="form-hint">Install Windows VM directly on an external SSD or HDD to save internal disk space.</span>
+                  </div>
+
                   <div class="form-group">
                     <label class="form-label">Virtual CPU Cores (Host Max: 8)</label>
                     <select id="win-cfg-cpus" class="form-select">
@@ -309,6 +324,7 @@
                     <label class="form-label">Virtual NVMe Hard Disk (.img / .raw)</label>
                     <div class="input-action-row">
                       <input type="text" id="win-cfg-disk" class="form-input" value="~/quickOS-VMs/windows11/disk.img" />
+                      <button id="btn-browse-win-disk" class="btn-secondary" title="Browse for an existing virtual disk">Browse...</button>
                       <button id="btn-create-win-disk" class="btn-secondary" title="Create 32GB Sparse Virtual Disk">Create 32GB Disk</button>
                     </div>
                     <span class="form-hint">Uses APFS Sparse allocation (takes ~10MB until Windows files are installed).</span>
@@ -316,7 +332,10 @@
 
                   <div class="form-group">
                     <label class="form-label">Windows 11 ARM64 Installation ISO / Media</label>
-                    <input type="text" id="win-cfg-iso" class="form-input" placeholder="e.g. /Users/you/Downloads/Win11_ARM64.iso" />
+                    <div class="input-action-row">
+                      <input type="text" id="win-cfg-iso" class="form-input" placeholder="e.g. /Volumes/ExternalSSD/Win11_ARM64.iso" />
+                      <button id="btn-browse-win-iso" class="btn-secondary" title="Select ISO file from your computer or SSD">Browse ISO...</button>
+                    </div>
                     <span class="form-hint">Leave empty if you already have an installed disk image.</span>
                   </div>
 
@@ -394,6 +413,21 @@
                     <span class="badge badge-warning">Native Linux Kernel</span>
                   </div>
 
+                  <!-- Storage Target Drive Picker (SSD / HDD) -->
+                  <div class="form-group">
+                    <label class="form-label">Storage Target Drive (SSD / HDD / Internal)</label>
+                    <div class="input-action-row">
+                      <select id="linux-cfg-drive-select" class="form-select">
+                        <option value="default">Default Internal Drive (~/quickOS-VMs)</option>
+                      </select>
+                      <button id="btn-browse-linux-folder" class="btn-secondary" title="Select custom folder on External SSD or HDD">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+                        Browse Drive...
+                      </button>
+                    </div>
+                    <span class="form-hint">Install Linux VM directly on an external SSD or HDD to save internal disk space.</span>
+                  </div>
+
                   <div class="form-group">
                     <label class="form-label">Virtual CPU Cores</label>
                     <select id="linux-cfg-cpus" class="form-select">
@@ -416,13 +450,17 @@
                     <label class="form-label">Linux Virtual Disk (.img / .raw)</label>
                     <div class="input-action-row">
                       <input type="text" id="linux-cfg-disk" class="form-input" value="~/quickOS-VMs/ubuntu/disk.img" />
+                      <button id="btn-browse-linux-disk" class="btn-secondary" title="Browse for an existing virtual disk">Browse...</button>
                       <button id="btn-create-linux-disk" class="btn-secondary" title="Create 20GB Sparse Virtual Disk">Create 20GB Disk</button>
                     </div>
                   </div>
 
                   <div class="form-group">
                     <label class="form-label">Ubuntu 24.04 ARM64 ISO / Cloud Image</label>
-                    <input type="text" id="linux-cfg-iso" class="form-input" placeholder="e.g. /Users/you/Downloads/ubuntu-24.04-live-server-arm64.iso" />
+                    <div class="input-action-row">
+                      <input type="text" id="linux-cfg-iso" class="form-input" placeholder="e.g. /Volumes/ExternalSSD/ubuntu-24.04-live-server-arm64.iso" />
+                      <button id="btn-browse-linux-iso" class="btn-secondary" title="Select ISO file">Browse ISO...</button>
+                    </div>
                   </div>
 
                   <div class="vm-action-bar">
@@ -476,7 +514,8 @@
                 <div class="form-group">
                   <label class="form-label">Select or Enter Windows Application Path (.exe / .msi)</label>
                   <div class="input-action-row">
-                    <input type="text" id="wine-exe-path" class="form-input" placeholder="e.g. /Users/you/Downloads/NotepadPlusPlus.exe" />
+                    <input type="text" id="wine-exe-path" class="form-input" placeholder="e.g. /Volumes/ExternalSSD/NotepadPlusPlus.exe" />
+                    <button id="btn-browse-wine-exe" class="btn-secondary" title="Browse for .exe or .msi file">Browse .exe...</button>
                     <button id="btn-run-wine-exe" class="btn-primary">
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
                       Run .exe Natively on Mac
@@ -486,7 +525,7 @@
 
                 <div class="status-box" id="wine-status-box" style="margin-top: 14px;">
                   <span class="pulse-dot" id="wine-pulse-dot" style="background-color: var(--info);"></span>
-                  <span id="wine-status-text">Enter the path to any Windows .exe or .msi file and click 'Run .exe Natively on Mac'.</span>
+                  <span id="wine-status-text">Enter or browse for any Windows .exe or .msi file and click 'Run .exe Natively on Mac'.</span>
                 </div>
               </div>
             </div>

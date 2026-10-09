@@ -175,6 +175,14 @@ function mockBackendResponse<T>(cmd: string, args: Record<string, unknown>): T {
   if (cmd === 'open_vms_folder') {
     return "~/quickOS-VMs" as unknown as T;
   }
+
+  if (cmd === 'pick_vm_directory') {
+    return "/Volumes/ExternalSSD/quickOS-VMs" as unknown as T;
+  }
+
+  if (cmd === 'pick_vm_file') {
+    return "/Volumes/ExternalSSD/Win11_ARM64.iso" as unknown as T;
+  }
   if (cmd === 'get_system_info') {
     return {
       hostname: "quickOS-VirtualNode.local",
@@ -419,6 +427,34 @@ class QuickOSApp {
     document.getElementById('btn-create-linux-disk')?.addEventListener('click', () => this.createVirtualDisk('linux'));
     document.getElementById('btn-run-wine-exe')?.addEventListener('click', () => this.runWindowsExe());
 
+    // Storage Drive Selectors (SSD / HDD)
+    document.getElementById('win-cfg-drive-select')?.addEventListener('change', (e) => {
+      const val = (e.target as HTMLSelectElement).value;
+      const diskInput = document.getElementById('win-cfg-disk') as HTMLInputElement | null;
+      if (diskInput) {
+        diskInput.value = val === 'default' ? '~/quickOS-VMs/windows11/disk.img' : `${val}/windows11/disk.img`;
+      }
+    });
+
+    document.getElementById('linux-cfg-drive-select')?.addEventListener('change', (e) => {
+      const val = (e.target as HTMLSelectElement).value;
+      const diskInput = document.getElementById('linux-cfg-disk') as HTMLInputElement | null;
+      if (diskInput) {
+        diskInput.value = val === 'default' ? '~/quickOS-VMs/ubuntu/disk.img' : `${val}/ubuntu/disk.img`;
+      }
+    });
+
+    // Browse Folder / Drive Buttons
+    document.getElementById('btn-browse-win-folder')?.addEventListener('click', () => this.browseFolderForVM('windows'));
+    document.getElementById('btn-browse-linux-folder')?.addEventListener('click', () => this.browseFolderForVM('linux'));
+
+    // Browse File Buttons (Disks, ISOs, EXEs)
+    document.getElementById('btn-browse-win-disk')?.addEventListener('click', () => this.browseFileForVM('win-cfg-disk', ['img', 'raw', 'vhdx', 'qcow2']));
+    document.getElementById('btn-browse-linux-disk')?.addEventListener('click', () => this.browseFileForVM('linux-cfg-disk', ['img', 'raw', 'qcow2']));
+    document.getElementById('btn-browse-win-iso')?.addEventListener('click', () => this.browseFileForVM('win-cfg-iso', ['iso', 'img', 'raw', 'vhdx', 'dmg']));
+    document.getElementById('btn-browse-linux-iso')?.addEventListener('click', () => this.browseFileForVM('linux-cfg-iso', ['iso', 'img', 'raw', 'dmg']));
+    document.getElementById('btn-browse-wine-exe')?.addEventListener('click', () => this.browseFileForVM('wine-exe-path', ['exe', 'msi', 'bat']));
+
     // Enter key inside wine-exe-path
     document.getElementById('wine-exe-path')?.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') this.runWindowsExe();
@@ -594,6 +630,82 @@ class QuickOSApp {
     }
   }
 
+  private populateStorageDrives(s: SystemSpecs) {
+    const winSelect = document.getElementById('win-cfg-drive-select') as HTMLSelectElement | null;
+    const linuxSelect = document.getElementById('linux-cfg-drive-select') as HTMLSelectElement | null;
+    if (!winSelect || !linuxSelect || !s.disks || s.disks.length === 0) return;
+
+    const curWinVal = winSelect.value;
+    const curLinuxVal = linuxSelect.value;
+
+    const optionsHtml = [
+      `<option value="default">Default Internal Drive (~/quickOS-VMs)</option>`,
+      ...s.disks.map(d => {
+        const isExternal = d.mount_point.startsWith('/Volumes/');
+        const prefix = isExternal ? '[External SSD/HDD]' : '[Internal APFS]';
+        const freeGB = formatBytes(d.available_bytes);
+        const name = d.name || d.mount_point;
+        return `<option value="${d.mount_point}/quickOS-VMs">${prefix} ${name} (${d.mount_point}) — ${freeGB} Free</option>`;
+      })
+    ].join('');
+
+    winSelect.innerHTML = optionsHtml;
+    linuxSelect.innerHTML = optionsHtml;
+
+    if (curWinVal && winSelect.querySelector(`option[value="${curWinVal}"]`)) {
+      winSelect.value = curWinVal;
+    }
+    if (curLinuxVal && linuxSelect.querySelector(`option[value="${curLinuxVal}"]`)) {
+      linuxSelect.value = curLinuxVal;
+    }
+  }
+
+  private async browseFolderForVM(osType: 'windows' | 'linux') {
+    try {
+      const selectedPath = await invokeBackend<string>('pick_vm_directory', {
+        prompt: `Select SSD, HDD, or Folder for ${osType === 'windows' ? 'Windows 11' : 'Ubuntu Linux'} VM storage`
+      });
+
+      if (selectedPath) {
+        const cleanPath = selectedPath.endsWith('/') ? selectedPath.slice(0, -1) : selectedPath;
+        const targetDiskPath = `${cleanPath}/quickOS-VMs/${osType === 'windows' ? 'windows11' : 'ubuntu'}/disk.img`;
+        
+        const inputId = osType === 'windows' ? 'win-cfg-disk' : 'linux-cfg-disk';
+        const selectId = osType === 'windows' ? 'win-cfg-drive-select' : 'linux-cfg-drive-select';
+        
+        const input = document.getElementById(inputId) as HTMLInputElement | null;
+        if (input) input.value = targetDiskPath;
+
+        const select = document.getElementById(selectId) as HTMLSelectElement | null;
+        if (select) {
+          const customOpt = document.createElement('option');
+          customOpt.value = `${cleanPath}/quickOS-VMs`;
+          customOpt.textContent = `[Custom Folder] ${cleanPath}`;
+          customOpt.selected = true;
+          select.appendChild(customOpt);
+        }
+      }
+    } catch (err) {
+      console.log("Folder selection cancelled or error:", err);
+    }
+  }
+
+  private async browseFileForVM(inputId: string, fileTypes: string[]) {
+    try {
+      const selectedFile = await invokeBackend<string>('pick_vm_file', {
+        prompt: 'Select File',
+        file_types: fileTypes
+      });
+
+      if (selectedFile) {
+        const input = document.getElementById(inputId) as HTMLInputElement | null;
+        if (input) input.value = selectedFile;
+      }
+    } catch (err) {
+      console.log("File selection cancelled or error:", err);
+    }
+  }
+
   private async loadAllData() {
     await Promise.all([
       this.refreshSystemSpecs(false),
@@ -614,6 +726,8 @@ class QuickOSApp {
   }
 
   private renderOverview(s: SystemSpecs) {
+    this.populateStorageDrives(s);
+
     // Header tags
     const headerOs = document.getElementById('header-os-name');
     if (headerOs) {
