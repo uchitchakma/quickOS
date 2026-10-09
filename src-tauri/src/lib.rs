@@ -146,10 +146,24 @@ pub struct PathStatusInfo {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppTypeInfo {
     pub file_path: String,
-    pub detected_type: String, // "windows", "macos", "linux", "unknown"
+    pub detected_type: String, // "windows", "macos", "linux", "android", "ios", "unknown"
     pub format_label: String,
     pub host_strategy: String,
     pub can_run: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AppMetadataInfo {
+    pub id: String,
+    pub name: String,
+    pub file_path: String,
+    pub os_type: String, // "macos", "windows", "linux", "android", "ios"
+    pub format_label: String,
+    pub version: String,
+    pub arch: String,
+    pub file_size_bytes: u64,
+    pub storage_type: String,
+    pub icon_type: String,
 }
 
 pub mod handlers {
@@ -1435,6 +1449,117 @@ pub mod handlers {
             volume_name,
         }
     }
+
+    fn md5_or_simple_hash(s: &str) -> u64 {
+        use std::collections::hash_map::DefaultHasher;
+        use std::hash::{Hash, Hasher};
+        let mut hasher = DefaultHasher::new();
+        s.hash(&mut hasher);
+        hasher.finish()
+    }
+
+    #[tauri::command]
+    pub fn inspect_app_metadata(file_path: String) -> AppMetadataInfo {
+        let app_type = detect_app_type(file_path.clone());
+        let path = std::path::Path::new(&file_path);
+        
+        let file_stem = path.file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_else(|| "Unknown Application".to_string());
+        let file_name = path.file_name().map(|s| s.to_string_lossy().to_string()).unwrap_or_else(|| "App".to_string());
+        
+        let file_size_bytes = if let Ok(meta) = std::fs::metadata(path) {
+            meta.len()
+        } else {
+            0
+        };
+
+        let storage_type = if file_path.starts_with("/Volumes/") {
+            let parts: Vec<&str> = file_path.split('/').filter(|s| !s.is_empty()).collect();
+            if parts.len() >= 2 {
+                format!("External Storage ({})", parts[1])
+            } else {
+                "External Storage".to_string()
+            }
+        } else {
+            "Internal APFS Storage".to_string()
+        };
+
+        let lower = file_name.to_lowercase();
+        let arch = if lower.contains("arm64") || lower.contains("aarch64") || lower.contains("apple") {
+            "ARM64 (Apple Silicon / ARM)".to_string()
+        } else if lower.contains("x86_64") || lower.contains("x64") || lower.contains("win64") || lower.contains("amd64") {
+            "x86_64 (64-bit Intel / AMD)".to_string()
+        } else if lower.contains("universal") {
+            "Universal (ARM64 + x86_64)".to_string()
+        } else {
+            match app_type.detected_type.as_str() {
+                "android" => "Universal Android (ARM64/x86)".to_string(),
+                "ios" => "iOS ARM64 Device / Simulator".to_string(),
+                "windows" => "Win32 / x64 Executable".to_string(),
+                "macos" => "macOS Native Binary".to_string(),
+                _ => "Native Architecture".to_string(),
+            }
+        };
+
+        let version = if lower.contains("v") {
+            let mut ver = "1.0.0".to_string();
+            for part in file_stem.split(&['-', '_', ' '][..]) {
+                if (part.starts_with('v') || part.starts_with('V')) && part.chars().nth(1).map(|c| c.is_ascii_digit()).unwrap_or(false) {
+                    ver = part.to_string();
+                    break;
+                }
+            }
+            ver
+        } else {
+            "1.0.0 (Release)".to_string()
+        };
+
+        let id = format!("{:x}", md5_or_simple_hash(&file_path));
+
+        AppMetadataInfo {
+            id,
+            name: file_stem,
+            file_path,
+            os_type: app_type.detected_type.clone(),
+            format_label: app_type.format_label,
+            version,
+            arch,
+            file_size_bytes,
+            storage_type,
+            icon_type: app_type.detected_type,
+        }
+    }
+
+    #[tauri::command]
+    pub fn reveal_in_finder(file_path: String) -> Result<(), String> {
+        #[cfg(target_os = "macos")]
+        {
+            let _ = Command::new("open").args(["-R", &file_path]).spawn();
+        }
+        #[cfg(target_os = "windows")]
+        {
+            let _ = Command::new("explorer").args(["/select,", &file_path]).spawn();
+        }
+        #[cfg(target_os = "linux")]
+        {
+            if let Some(parent) = std::path::Path::new(&file_path).parent() {
+                let _ = Command::new("xdg-open").arg(parent).spawn();
+            }
+        }
+        Ok(())
+    }
+
+    #[tauri::command]
+    pub fn delete_app_file(file_path: String) -> Result<(), String> {
+        let p = std::path::Path::new(&file_path);
+        if p.exists() {
+            if p.is_dir() {
+                let _ = std::fs::remove_dir_all(p).map_err(|e| e.to_string())?;
+            } else {
+                let _ = std::fs::remove_file(p).map_err(|e| e.to_string())?;
+            }
+        }
+        Ok(())
+    }
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -1458,7 +1583,10 @@ pub fn run() {
             handlers::pick_vm_file,
             handlers::check_path_status,
             handlers::detect_app_type,
-            handlers::run_universal_app
+            handlers::run_universal_app,
+            handlers::inspect_app_metadata,
+            handlers::reveal_in_finder,
+            handlers::delete_app_file
         ])
         .run(tauri::generate_context!())
         .expect("error while running quickOS application");
