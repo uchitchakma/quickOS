@@ -633,13 +633,17 @@
             </div>
 
             <!-- Empty State Placeholder -->
-            <div id="app-library-empty" class="card" style="display: none; text-align: center; padding: 48px 20px;">
-              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color: var(--text-muted); margin-bottom: 12px;"><rect x="4" y="4" width="6" height="6" rx="1"></rect><rect x="14" y="4" width="6" height="6" rx="1"></rect><rect x="4" y="14" width="6" height="6" rx="1"></rect><rect x="14" y="14" width="6" height="6" rx="1"></rect></svg>
-              <h3 style="font-size: 16px; margin-bottom: 6px; color: var(--text-primary);">No Applications Found</h3>
-              <p style="font-size: 13px; color: var(--text-muted); max-width: 420px; margin: 0 auto 16px;">Add any .exe, .app, .dmg, .apk, .aab, .ipa, .deb, or .AppImage file to organize and run them effortlessly.</p>
-              <button id="btn-empty-add-app" class="btn-primary" style="display: inline-flex; margin: 0 auto;">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                Add Your First App
+            <div id="app-library-empty" class="card" style="display: none; text-align: center; padding: 56px 24px; border: 1px dashed var(--border);">
+              <div style="width: 56px; height: 56px; margin: 0 auto 16px; border-radius: 50%; background: var(--bg-card-hover); display: flex; align-items: center; justify-content: center; border: 1px solid var(--border);">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" style="color: var(--primary);"><rect x="4" y="4" width="6" height="6" rx="1"></rect><rect x="14" y="4" width="6" height="6" rx="1"></rect><rect x="4" y="14" width="6" height="6" rx="1"></rect><rect x="14" y="14" width="6" height="6" rx="1"></rect></svg>
+              </div>
+              <h3 style="font-size: 17px; margin-bottom: 8px; color: var(--text-primary); font-weight: 700;">No Applications in Library</h3>
+              <p style="font-size: 13px; color: var(--text-secondary); max-width: 480px; margin: 0 auto 20px; line-height: 1.5;">
+                Your library is completely clean. Click <strong>+ Add App to Library</strong> to select any downloaded Android (<strong>.apk</strong> / <strong>.aab</strong>), iOS (<strong>.ipa</strong>), Windows (<strong>.exe</strong> / <strong>.msi</strong>), macOS (<strong>.app</strong> / <strong>.dmg</strong>), or Linux (<strong>.AppImage</strong> / <strong>.deb</strong>) file to run and test!
+              </p>
+              <button id="btn-empty-add-app" class="btn-primary" style="display: inline-flex; margin: 0 auto; align-items: center; gap: 8px; padding: 8px 18px; font-size: 13px;">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                <span>Select & Add App File (.apk, .ipa, .exe, .app...)</span>
               </button>
             </div>
           </section>
