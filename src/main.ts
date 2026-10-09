@@ -123,6 +123,28 @@ interface VMRunResult {
   message: string;
 }
 
+interface PathStatusInfo {
+  path: string;
+  exists: boolean;
+  parent_exists: boolean;
+  volume_mounted: boolean;
+  volume_name?: string;
+}
+
+interface VMSettings {
+  winDrive?: string;
+  winCpus?: string;
+  winMemory?: string;
+  winDisk?: string;
+  winIso?: string;
+  linuxDrive?: string;
+  linuxCpus?: string;
+  linuxMemory?: string;
+  linuxDisk?: string;
+  linuxIso?: string;
+  wineExePath?: string;
+}
+
 // Global invocation helper (safely connects to Tauri native core with browser fallback)
 async function invokeBackend<T>(cmd: string, args: Record<string, unknown> = {}): Promise<T> {
   try {
@@ -148,6 +170,23 @@ function mockBackendResponse<T>(cmd: string, args: Record<string, unknown>): T {
       wine_path: undefined,
       qemu_available: false,
       os_version: "macOS (Apple Silicon)"
+    } as unknown as T;
+  }
+
+  if (cmd === 'check_path_status') {
+    const p = (args.path as string) || '';
+    const isVolume = p.startsWith('/Volumes/');
+    let volName = 'Internal Storage';
+    if (isVolume) {
+      const parts = p.split('/').filter(Boolean);
+      volName = parts[1] || 'External Drive';
+    }
+    return {
+      path: p,
+      exists: true,
+      parent_exists: true,
+      volume_mounted: true,
+      volume_name: volName,
     } as unknown as T;
   }
 
@@ -303,18 +342,24 @@ class QuickOSApp {
   private currentTheme: 'dark' | 'light' = 'dark';
   private latestSpecs: SystemSpecs | null = null;
   private hypervisorInfo: HypervisorInfo | null = null;
+  private savedWinDrive: string = 'default';
+  private savedLinuxDrive: string = 'default';
 
   init() {
     this.initTheme();
     this.setupTabs();
     this.setupVMModeSwitcher();
     this.setupActions();
+    this.loadVMSettings();
+    this.setupVMSettingsPersistence();
     this.loadAllData();
     this.loadHypervisorInfo();
+    this.validateVMPaths();
 
-    // Live refresh every 4 seconds for CPU/RAM telemetry
+    // Live refresh every 4 seconds for CPU/RAM telemetry and disk reconnect status
     setInterval(() => {
       this.refreshSystemSpecs(true);
+      this.validateVMPaths();
     }, 4000);
   }
 
@@ -367,6 +412,7 @@ class QuickOSApp {
     // Lazy load or refresh tab content when navigated
     if (tabId === 'wifi') this.loadWifiInfo(false);
     if (tabId === 'bluetooth') this.loadBluetoothInfo();
+    if (tabId === 'vms') this.validateVMPaths();
   }
 
   private setupActions() {
@@ -378,6 +424,7 @@ class QuickOSApp {
     // Refresh Topbar button
     document.getElementById('btn-refresh')?.addEventListener('click', () => {
       this.loadAllData();
+      this.validateVMPaths();
     });
 
     // Copy Specs button
@@ -430,18 +477,24 @@ class QuickOSApp {
     // Storage Drive Selectors (SSD / HDD)
     document.getElementById('win-cfg-drive-select')?.addEventListener('change', (e) => {
       const val = (e.target as HTMLSelectElement).value;
+      this.savedWinDrive = val;
       const diskInput = document.getElementById('win-cfg-disk') as HTMLInputElement | null;
       if (diskInput) {
         diskInput.value = val === 'default' ? '~/quickOS-VMs/windows11/disk.img' : `${val}/windows11/disk.img`;
       }
+      this.saveVMSettings();
+      this.validateVMPaths();
     });
 
     document.getElementById('linux-cfg-drive-select')?.addEventListener('change', (e) => {
       const val = (e.target as HTMLSelectElement).value;
+      this.savedLinuxDrive = val;
       const diskInput = document.getElementById('linux-cfg-disk') as HTMLInputElement | null;
       if (diskInput) {
         diskInput.value = val === 'default' ? '~/quickOS-VMs/ubuntu/disk.img' : `${val}/ubuntu/disk.img`;
       }
+      this.saveVMSettings();
+      this.validateVMPaths();
     });
 
     // Browse Folder / Drive Buttons
@@ -630,33 +683,257 @@ class QuickOSApp {
     }
   }
 
+  private loadVMSettings() {
+    try {
+      const raw = localStorage.getItem('quickos-vm-settings');
+      if (!raw) return;
+      const data: VMSettings = JSON.parse(raw);
+
+      if (data.winCpus) {
+        const el = document.getElementById('win-cfg-cpus') as HTMLSelectElement | null;
+        if (el) el.value = data.winCpus;
+      }
+      if (data.winMemory) {
+        const el = document.getElementById('win-cfg-memory') as HTMLSelectElement | null;
+        if (el) el.value = data.winMemory;
+      }
+      if (data.winDisk) {
+        const el = document.getElementById('win-cfg-disk') as HTMLInputElement | null;
+        if (el) el.value = data.winDisk;
+      }
+      if (data.winIso !== undefined) {
+        const el = document.getElementById('win-cfg-iso') as HTMLInputElement | null;
+        if (el) el.value = data.winIso;
+      }
+      if (data.winDrive) {
+        this.savedWinDrive = data.winDrive;
+      }
+
+      if (data.linuxCpus) {
+        const el = document.getElementById('linux-cfg-cpus') as HTMLSelectElement | null;
+        if (el) el.value = data.linuxCpus;
+      }
+      if (data.linuxMemory) {
+        const el = document.getElementById('linux-cfg-memory') as HTMLSelectElement | null;
+        if (el) el.value = data.linuxMemory;
+      }
+      if (data.linuxDisk) {
+        const el = document.getElementById('linux-cfg-disk') as HTMLInputElement | null;
+        if (el) el.value = data.linuxDisk;
+      }
+      if (data.linuxIso !== undefined) {
+        const el = document.getElementById('linux-cfg-iso') as HTMLInputElement | null;
+        if (el) el.value = data.linuxIso;
+      }
+      if (data.linuxDrive) {
+        this.savedLinuxDrive = data.linuxDrive;
+      }
+
+      if (data.wineExePath !== undefined) {
+        const el = document.getElementById('wine-exe-path') as HTMLInputElement | null;
+        if (el) el.value = data.wineExePath;
+      }
+    } catch (e) {
+      console.warn("Could not parse saved VM settings:", e);
+    }
+  }
+
+  private saveVMSettings() {
+    try {
+      const winDriveEl = document.getElementById('win-cfg-drive-select') as HTMLSelectElement | null;
+      const winCpusEl = document.getElementById('win-cfg-cpus') as HTMLSelectElement | null;
+      const winMemEl = document.getElementById('win-cfg-memory') as HTMLSelectElement | null;
+      const winDiskEl = document.getElementById('win-cfg-disk') as HTMLInputElement | null;
+      const winIsoEl = document.getElementById('win-cfg-iso') as HTMLInputElement | null;
+
+      const linuxDriveEl = document.getElementById('linux-cfg-drive-select') as HTMLSelectElement | null;
+      const linuxCpusEl = document.getElementById('linux-cfg-cpus') as HTMLSelectElement | null;
+      const linuxMemEl = document.getElementById('linux-cfg-memory') as HTMLSelectElement | null;
+      const linuxDiskEl = document.getElementById('linux-cfg-disk') as HTMLInputElement | null;
+      const linuxIsoEl = document.getElementById('linux-cfg-iso') as HTMLInputElement | null;
+
+      const wineExeEl = document.getElementById('wine-exe-path') as HTMLInputElement | null;
+
+      const settings: VMSettings = {
+        winDrive: winDriveEl?.value || this.savedWinDrive,
+        winCpus: winCpusEl?.value,
+        winMemory: winMemEl?.value,
+        winDisk: winDiskEl?.value,
+        winIso: winIsoEl?.value,
+        linuxDrive: linuxDriveEl?.value || this.savedLinuxDrive,
+        linuxCpus: linuxCpusEl?.value,
+        linuxMemory: linuxMemEl?.value,
+        linuxDisk: linuxDiskEl?.value,
+        linuxIso: linuxIsoEl?.value,
+        wineExePath: wineExeEl?.value,
+      };
+
+      if (winDriveEl?.value) this.savedWinDrive = winDriveEl.value;
+      if (linuxDriveEl?.value) this.savedLinuxDrive = linuxDriveEl.value;
+
+      localStorage.setItem('quickos-vm-settings', JSON.stringify(settings));
+    } catch (e) {
+      console.warn("Error saving VM settings:", e);
+    }
+  }
+
+  private setupVMSettingsPersistence() {
+    const inputIds = [
+      'win-cfg-drive-select',
+      'win-cfg-cpus',
+      'win-cfg-memory',
+      'win-cfg-disk',
+      'win-cfg-iso',
+      'linux-cfg-drive-select',
+      'linux-cfg-cpus',
+      'linux-cfg-memory',
+      'linux-cfg-disk',
+      'linux-cfg-iso',
+      'wine-exe-path'
+    ];
+
+    inputIds.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) {
+        el.addEventListener('input', () => {
+          this.saveVMSettings();
+          this.validateVMPaths();
+        });
+        el.addEventListener('change', () => {
+          this.saveVMSettings();
+          this.validateVMPaths();
+        });
+      }
+    });
+  }
+
   private populateStorageDrives(s: SystemSpecs) {
     const winSelect = document.getElementById('win-cfg-drive-select') as HTMLSelectElement | null;
     const linuxSelect = document.getElementById('linux-cfg-drive-select') as HTMLSelectElement | null;
     if (!winSelect || !linuxSelect || !s.disks || s.disks.length === 0) return;
 
-    const curWinVal = winSelect.value;
-    const curLinuxVal = linuxSelect.value;
+    const curWinVal = winSelect.value || this.savedWinDrive;
+    const curLinuxVal = linuxSelect.value || this.savedLinuxDrive;
 
-    const optionsHtml = [
-      `<option value="default">Default Internal Drive (~/quickOS-VMs)</option>`,
-      ...s.disks.map(d => {
-        const isExternal = d.mount_point.startsWith('/Volumes/');
-        const prefix = isExternal ? '[External SSD/HDD]' : '[Internal APFS]';
-        const freeGB = formatBytes(d.available_bytes);
-        const name = d.name || d.mount_point;
-        return `<option value="${d.mount_point}/quickOS-VMs">${prefix} ${name} (${d.mount_point}) — ${freeGB} Free</option>`;
-      })
-    ].join('');
+    const diskOptions = s.disks.map(d => {
+      const isExternal = d.mount_point.startsWith('/Volumes/');
+      const prefix = isExternal ? '[External SSD/HDD]' : '[Internal APFS]';
+      const freeGB = formatBytes(d.available_bytes);
+      const name = d.name || d.mount_point;
+      const val = `${d.mount_point}/quickOS-VMs`;
+      return {
+        value: val,
+        label: `${prefix} ${name} (${d.mount_point}) — ${freeGB} Free`,
+        mount: d.mount_point
+      };
+    });
 
-    winSelect.innerHTML = optionsHtml;
-    linuxSelect.innerHTML = optionsHtml;
+    const buildOptionsHtml = (selectedVal: string) => {
+      let html = `<option value="default">Default Internal Drive (~/quickOS-VMs)</option>`;
+      let foundSelected = selectedVal === 'default' || !selectedVal;
+
+      diskOptions.forEach(opt => {
+        if (opt.value === selectedVal) foundSelected = true;
+        html += `<option value="${opt.value}">${opt.label}</option>`;
+      });
+
+      if (!foundSelected && selectedVal.startsWith('/Volumes/')) {
+        const parts = selectedVal.split('/').filter(Boolean);
+        const driveName = parts[1] || 'External Drive';
+        html += `<option value="${selectedVal}" selected>[Disconnected SSD/HDD] /Volumes/${driveName} (Offline)</option>`;
+      } else if (!foundSelected && selectedVal !== 'default' && selectedVal) {
+        html += `<option value="${selectedVal}" selected>[Custom Folder] ${selectedVal}</option>`;
+      }
+
+      return html;
+    };
+
+    winSelect.innerHTML = buildOptionsHtml(curWinVal);
+    linuxSelect.innerHTML = buildOptionsHtml(curLinuxVal);
 
     if (curWinVal && winSelect.querySelector(`option[value="${curWinVal}"]`)) {
       winSelect.value = curWinVal;
     }
     if (curLinuxVal && linuxSelect.querySelector(`option[value="${curLinuxVal}"]`)) {
       linuxSelect.value = curLinuxVal;
+    }
+  }
+
+  private async validateVMPaths() {
+    // 1. Windows VM Path Validation
+    const winDiskInput = document.getElementById('win-cfg-disk') as HTMLInputElement | null;
+    const winStatusBox = document.getElementById('win-drive-status');
+    const winStatusText = document.getElementById('win-drive-status-text');
+    const winStartBtn = document.getElementById('btn-start-native-win11') as HTMLButtonElement | null;
+    const winCreateBtn = document.getElementById('btn-create-win-disk') as HTMLButtonElement | null;
+
+    if (winDiskInput && winStatusBox && winStatusText) {
+      const diskPath = winDiskInput.value.trim();
+      try {
+        const status = await invokeBackend<PathStatusInfo>('check_path_status', { path: diskPath });
+        const dot = winStatusBox.querySelector('.status-dot-sm');
+
+        if (!status.volume_mounted) {
+          winStatusBox.className = 'drive-status-indicator offline';
+          if (dot) dot.className = 'status-dot-sm offline';
+          winStatusText.textContent = `External Drive "${status.volume_name || 'SSD/HDD'}" Disconnected — Please reconnect drive to continue`;
+          if (winStartBtn) {
+            winStartBtn.disabled = true;
+            winStartBtn.title = `External drive "${status.volume_name}" is disconnected.`;
+          }
+          if (winCreateBtn) winCreateBtn.disabled = true;
+        } else {
+          winStatusBox.className = 'drive-status-indicator online';
+          if (dot) dot.className = 'status-dot-sm online';
+          const diskState = status.exists ? 'Virtual Disk Ready' : 'Virtual Disk Not Found (Click "Create 32GB Disk")';
+          winStatusText.textContent = `${status.volume_name || 'Internal Drive'} Connected & Ready (${diskState})`;
+          if (winStartBtn) {
+            winStartBtn.disabled = false;
+            winStartBtn.title = 'Boot Real Native Windows 11 VM';
+          }
+          if (winCreateBtn) winCreateBtn.disabled = false;
+        }
+      } catch (err) {
+        console.warn("Could not check Windows VM path status:", err);
+      }
+    }
+
+    // 2. Linux VM Path Validation
+    const linuxDiskInput = document.getElementById('linux-cfg-disk') as HTMLInputElement | null;
+    const linuxStatusBox = document.getElementById('linux-drive-status');
+    const linuxStatusText = document.getElementById('linux-drive-status-text');
+    const linuxStartBtn = document.getElementById('btn-start-native-linux') as HTMLButtonElement | null;
+    const linuxCreateBtn = document.getElementById('btn-create-linux-disk') as HTMLButtonElement | null;
+
+    if (linuxDiskInput && linuxStatusBox && linuxStatusText) {
+      const diskPath = linuxDiskInput.value.trim();
+      try {
+        const status = await invokeBackend<PathStatusInfo>('check_path_status', { path: diskPath });
+        const dot = linuxStatusBox.querySelector('.status-dot-sm');
+
+        if (!status.volume_mounted) {
+          linuxStatusBox.className = 'drive-status-indicator offline';
+          if (dot) dot.className = 'status-dot-sm offline';
+          linuxStatusText.textContent = `External Drive "${status.volume_name || 'SSD/HDD'}" Disconnected — Please reconnect drive to continue`;
+          if (linuxStartBtn) {
+            linuxStartBtn.disabled = true;
+            linuxStartBtn.title = `External drive "${status.volume_name}" is disconnected.`;
+          }
+          if (linuxCreateBtn) linuxCreateBtn.disabled = true;
+        } else {
+          linuxStatusBox.className = 'drive-status-indicator online';
+          if (dot) dot.className = 'status-dot-sm online';
+          const diskState = status.exists ? 'Virtual Disk Ready' : 'Virtual Disk Not Found (Click "Create 20GB Disk")';
+          linuxStatusText.textContent = `${status.volume_name || 'Internal Drive'} Connected & Ready (${diskState})`;
+          if (linuxStartBtn) {
+            linuxStartBtn.disabled = false;
+            linuxStartBtn.title = 'Boot Real Native Ubuntu Linux VM';
+          }
+          if (linuxCreateBtn) linuxCreateBtn.disabled = false;
+        }
+      } catch (err) {
+        console.warn("Could not check Linux VM path status:", err);
+      }
     }
   }
 
@@ -677,13 +954,21 @@ class QuickOSApp {
         if (input) input.value = targetDiskPath;
 
         const select = document.getElementById(selectId) as HTMLSelectElement | null;
+        const folderVal = `${cleanPath}/quickOS-VMs`;
+        if (osType === 'windows') this.savedWinDrive = folderVal;
+        else this.savedLinuxDrive = folderVal;
+
         if (select) {
           const customOpt = document.createElement('option');
-          customOpt.value = `${cleanPath}/quickOS-VMs`;
+          customOpt.value = folderVal;
           customOpt.textContent = `[Custom Folder] ${cleanPath}`;
           customOpt.selected = true;
           select.appendChild(customOpt);
+          select.value = folderVal;
         }
+
+        this.saveVMSettings();
+        this.validateVMPaths();
       }
     } catch (err) {
       console.log("Folder selection cancelled or error:", err);
@@ -700,6 +985,8 @@ class QuickOSApp {
       if (selectedFile) {
         const input = document.getElementById(inputId) as HTMLInputElement | null;
         if (input) input.value = selectedFile;
+        this.saveVMSettings();
+        this.validateVMPaths();
       }
     } catch (err) {
       console.log("File selection cancelled or error:", err);

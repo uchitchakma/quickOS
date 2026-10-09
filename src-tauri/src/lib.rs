@@ -134,6 +134,15 @@ pub struct VMRunResult {
     pub message: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PathStatusInfo {
+    pub path: String,
+    pub exists: bool,
+    pub parent_exists: bool,
+    pub volume_mounted: bool,
+    pub volume_name: Option<String>,
+}
+
 pub mod handlers {
     use super::*;
 
@@ -1139,6 +1148,42 @@ pub mod handlers {
             Err("File picker not supported on this platform".to_string())
         }
     }
+
+    #[tauri::command]
+    pub fn check_path_status(path: String) -> PathStatusInfo {
+        let expanded_path = if path.starts_with('~') {
+            let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
+            path.replacen('~', &home, 1)
+        } else {
+            path
+        };
+
+        let p = std::path::Path::new(&expanded_path);
+        let exists = p.exists();
+        let parent_exists = p.parent().map(|parent| parent.exists()).unwrap_or(false);
+
+        let (volume_mounted, volume_name) = if expanded_path.starts_with("/Volumes/") {
+            let parts: Vec<&str> = expanded_path.split('/').filter(|s| !s.is_empty()).collect();
+            if parts.len() >= 2 {
+                let vol_name = parts[1].to_string();
+                let vol_path = format!("/Volumes/{}", vol_name);
+                let is_mounted = std::path::Path::new(&vol_path).exists();
+                (is_mounted, Some(vol_name))
+            } else {
+                (true, Some("Volumes".to_string()))
+            }
+        } else {
+            (true, Some("Internal Storage".to_string()))
+        };
+
+        PathStatusInfo {
+            path: expanded_path,
+            exists,
+            parent_exists,
+            volume_mounted,
+            volume_name,
+        }
+    }
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -1159,7 +1204,8 @@ pub fn run() {
             handlers::create_vm_disk,
             handlers::open_vms_folder,
             handlers::pick_vm_directory,
-            handlers::pick_vm_file
+            handlers::pick_vm_file,
+            handlers::check_path_status
         ])
         .run(tauri::generate_context!())
         .expect("error while running quickOS application");
