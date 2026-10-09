@@ -1,6 +1,6 @@
 # quickOS Architecture Specification
 
-**Product:** quickOS — Universal Diagnostics & Hardware Suite  
+**Product:** quickOS — Universal Local OS Virtualization, Hypervisor & Cross-Platform App Runner  
 **Organization:** UCDREAMS TECHNOLOGIES LLP (<https://ucdreams.com>)  
 **Lead Developer:** Uchit Chakma (<https://uchitchakma.com>)
 
@@ -8,57 +8,54 @@
 
 ## 1. High-Level Architecture Overview
 
-quickOS is designed around a lightweight, multi-layered architecture separating high-performance native OS interrogation (Rust) from zero-bloat user interface rendering (Native OS WebViews).
+quickOS is engineered with a high-performance multi-tier architecture separating the **Native Apple Hypervisor Engine** (Swift + `Virtualization.framework`), the **Hardware Interrogation & IPC Core** (Rust + Tauri 2.0), and the **Zero-Bloat UI** (TypeScript + HTML5).
 
 ```mermaid
 flowchart TD
     subgraph UI ["Frontend Webview Layer (TypeScript + HTML5)"]
-        A["DOM & Theme Engine (#C5453E)"]
-        B["Telemetry Dispatcher"]
-        C["Diagnostics Runner"]
-        D["Ping & ICMP View"]
+        A["Virtual OS Lab (Win 11 / Ubuntu / .exe)"]
+        B["Storage Target Manager (SSD / HDD)"]
+        C["Hardware Telemetry & Specs"]
+        D["Diagnostics & Ping Suite"]
     end
 
     subgraph IPC ["Tauri 2.0 IPC Bridge"]
-        E["IPC Commands & JSON Serializer"]
+        E["IPC Commands & Path Status Validator"]
     end
 
-    subgraph Rust ["Rust 2.0 Native Core (quickos_lib)"]
-        F["System Specs & Sysinfo"]
-        G["Wi-Fi & Radio Layer"]
-        H["Bluetooth & Peripheral Manager"]
-        I["Benchmarking & Stress Matrix"]
-        J["ICMP Ping Engine"]
+    subgraph Core ["Rust Native Core (quickos_lib)"]
+        F["Hypervisor Coordinator"]
+        G["Sparse Disk Engine (APFS / ext4)"]
+        H["Drive Reconnection Monitor"]
+        I["Telemetry & sysinfo"]
     end
 
-    subgraph OS ["Operating System Kernel & Hardware Interfaces"]
-        K1["macOS (CoreWLAN, IOBluetooth, Darwin)"]
-        K2["Windows (WLAN Netsh, PnP, Win32 APIs)"]
-        K3["Linux / Ubuntu (BlueZ, NetworkManager, sysfs)"]
-        K4["Android / iOS (NDK / WebKit Mobile)"]
+    subgraph Hypervisor ["Native Hypervisor Engine (quickos-vm / Swift 6.2)"]
+        J1["VZVirtualMachine (Apple Silicon Hypervisor)"]
+        J2["Metal 3 GPU Framebuffer (60 FPS)"]
+        J3["Paravirtualized NVMe VirtIO Block Device"]
+        J4["NAT Bridged Networking & Audio Sink"]
+        J5["Windows Binary Runner (Compatibility Layer)"]
     end
 
     UI --> IPC
-    IPC --> Rust
-    Rust --> OS
+    IPC --> Core
+    Core --> Hypervisor
 ```
 
 ---
 
-## 2. Platform Interrogation Strategies
+## 2. Operating System Virtualization Pipeline
 
-| Component | macOS (Darwin) | Linux (Ubuntu/Debian) | Windows (10/11) |
+| Target OS / Mode | Engine Core | Acceleration & Hardware Drivers | Storage Strategy |
 | :--- | :--- | :--- | :--- |
-| **System Info & CPU** | `sysinfo` + `sysctl` | `sysinfo` + `/proc/cpuinfo` | `sysinfo` + WMI |
-| **Memory & Disks** | `sysinfo` + APFS mounts | `sysinfo` + `statvfs` | `sysinfo` + NTFS/FAT |
-| **Wi-Fi Scanner** | `networksetup` + `wdutil` | `nmcli` + `iwconfig` | `netsh wlan` |
-| **Bluetooth Scanner** | `system_profiler SPBluetooth` | `bluetoothctl` + `BlueZ` | `PowerShell Get-PnpDevice` |
-| **Battery Power** | `pmset -g batt` | `/sys/class/power_supply` | `Win32_Battery` |
-| **Network Latency** | POSIX `ping -c 2` | POSIX `ping -c 2` | Win32 `ping -n 2` |
+| **Windows 11 ARM64** | `VZVirtualMachine` | Metal 3 GPU + NVMe VirtIO + USB HID + Audio Sink | APFS Sparse Disk (`.img` / `.raw`) on SSD/HDD |
+| **Ubuntu Linux 24.04** | Direct Linux Kernel VM | VirtIO GPU + VirtIO Console + NAT Bridge | APFS Sparse Disk (`.img`) on SSD/HDD |
+| **Windows .exe Launcher** | Native Binary Translator | Win32 / POSIX API Layer | Direct execution from Host or External SSD |
 
 ---
 
-## 3. Brand Identity & Theme Tokens
+## 3. Brand Identity & Design Tokens
 
 - **Primary Brand Color:** `#C5453E`
 - **Hover / Accent:** `#D8564F`
