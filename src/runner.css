@@ -1089,6 +1089,340 @@ body {
   transition: background 0.15s;
 }
 
-.btn-primary:hover {
-  background: var(--primary-hover);
+/* ==========================================================================
+   INTERACTIVE ANDROID GALLERY & PHOTO VIEWER (Galeris App Engine)
+   ========================================================================== */
+
+.gallery-app-root {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: #0D111A;
+  color: #fff;
+  position: relative;
+  overflow: hidden;
+  user-select: none;
 }
+
+.gallery-header {
+  height: 52px;
+  background: #131826;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 14px;
+  flex-shrink: 0;
+  z-index: 10;
+}
+
+.gallery-brand-title {
+  font-size: 14px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #fff;
+}
+
+.gallery-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.gallery-btn-icon {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #CBD5E1;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.gallery-btn-icon:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+}
+
+/* Category Tabs */
+.gallery-tab-strip {
+  display: flex;
+  gap: 6px;
+  padding: 8px 12px;
+  background: #0E131E;
+  overflow-x: auto;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  flex-shrink: 0;
+}
+
+.gallery-tab-pill {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #94A3B8;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 16px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.gallery-tab-pill.active {
+  background: var(--primary);
+  color: #fff;
+  border-color: var(--primary);
+}
+
+/* Photo Grid View */
+.gallery-scroll-area {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.gallery-section-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: #94A3B8;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 4px;
+}
+
+.gallery-photo-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+
+.gallery-photo-item {
+  aspect-ratio: 1;
+  border-radius: 8px;
+  overflow: hidden;
+  position: relative;
+  background: #1E273D;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.gallery-photo-item:hover {
+  transform: scale(1.03);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.5);
+  border-color: var(--primary);
+  z-index: 2;
+}
+
+.gallery-photo-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s ease;
+}
+
+.gallery-photo-badge {
+  position: absolute;
+  bottom: 4px;
+  right: 4px;
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(2px);
+  color: #fff;
+  font-size: 9px;
+  padding: 2px 4px;
+  border-radius: 4px;
+  font-family: var(--font-mono);
+}
+
+.gallery-fav-heart {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  color: #EF4444;
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.8));
+  font-size: 12px;
+}
+
+/* Floating Action Button (FAB) */
+.gallery-fab {
+  position: absolute;
+  bottom: 56px;
+  right: 16px;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 8px 20px rgba(197, 69, 62, 0.5);
+  cursor: pointer;
+  transition: transform 0.15s;
+  z-index: 20;
+}
+
+.gallery-fab:hover {
+  transform: scale(1.08);
+}
+
+/* FULL-SCREEN LIGHTBOX VIEWER */
+.gallery-lightbox-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: #05070B;
+  display: flex;
+  flex-direction: column;
+  z-index: 50;
+  animation: fadeIn 0.18s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.lightbox-topbar {
+  height: 46px;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px;
+  flex-shrink: 0;
+}
+
+.lightbox-counter {
+  font-size: 12px;
+  font-weight: 600;
+  color: #CBD5E1;
+}
+
+.lightbox-canvas-area {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+  overflow: hidden;
+  position: relative;
+}
+
+.lightbox-main-img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: 8px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8);
+  transition: transform 0.2s ease, filter 0.2s ease;
+}
+
+.lightbox-filter-bar {
+  background: rgba(14, 19, 30, 0.9);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 8px 10px;
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  flex-shrink: 0;
+}
+
+.filter-chip-btn {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #CBD5E1;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 12px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.filter-chip-btn.active {
+  background: var(--primary);
+  color: #fff;
+  border-color: var(--primary);
+}
+
+.lightbox-bottom-bar {
+  height: 48px;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  padding: 0 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
+}
+
+.lightbox-action-btn {
+  background: transparent;
+  border: none;
+  color: #CBD5E1;
+  font-size: 11px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: color 0.15s;
+}
+
+.lightbox-action-btn:hover {
+  color: #fff;
+}
+
+.lightbox-action-btn.active-fav {
+  color: #EF4444;
+}
+
+/* ANDROID BOTTOM 3-BUTTON SYSTEM NAVIGATION BAR */
+.android-system-navbar {
+  height: 36px;
+  background: #000;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  flex-shrink: 0;
+  z-index: 40;
+}
+
+.nav-key-btn {
+  background: transparent;
+  border: none;
+  color: #CBD5E1;
+  cursor: pointer;
+  width: 44px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all 0.15s;
+}
+
+.nav-key-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+}
+

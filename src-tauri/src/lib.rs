@@ -84,6 +84,7 @@ pub struct AppTypeInfo {
 pub struct AppMetadataInfo {
     pub id: String,
     pub name: String,
+    pub display_name: Option<String>,
     pub file_path: String,
     pub os_type: String, // "macos", "windows", "linux", "android", "ios"
     pub format_label: String,
@@ -92,6 +93,7 @@ pub struct AppMetadataInfo {
     pub file_size_bytes: u64,
     pub storage_type: String,
     pub icon_type: String,
+    pub icon_data_uri: Option<String>,
 }
 
 pub mod handlers {
@@ -795,6 +797,163 @@ pub mod handlers {
         }
     }
 
+    fn base64_encode(data: &[u8]) -> String {
+        const CHARS: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+        let mut result = String::with_capacity((data.len() + 2) / 3 * 4);
+        for chunk in data.chunks(3) {
+            let b0 = chunk[0];
+            let b1 = if chunk.len() > 1 { chunk[1] } else { 0 };
+            let b2 = if chunk.len() > 2 { chunk[2] } else { 0 };
+
+            result.push(CHARS[(b0 >> 2) as usize] as char);
+            result.push(CHARS[(((b0 & 0x03) << 4) | (b1 >> 4)) as usize] as char);
+            if chunk.len() > 1 {
+                result.push(CHARS[(((b1 & 0x0f) << 2) | (b2 >> 6)) as usize] as char);
+            } else {
+                result.push('=');
+            }
+            if chunk.len() > 2 {
+                result.push(CHARS[(b2 & 0x3f) as usize] as char);
+            } else {
+                result.push('=');
+            }
+        }
+        result
+    }
+
+    fn extract_apk_icon_base64(apk_path: &str) -> Option<String> {
+        let candidates = [
+            "res/drawable/ic_launcher.png",
+            "res/drawable/ronud_icon.png",
+            "res/mipmap-xxxhdpi-v4/ic_launcher.png",
+            "res/mipmap-xxhdpi-v4/ic_launcher.png",
+            "res/mipmap-xhdpi-v4/ic_launcher.png",
+            "res/mipmap-hdpi-v4/ic_launcher.png",
+            "res/mipmap-mdpi-v4/ic_launcher.png",
+            "res/mipmap-xxxhdpi/ic_launcher.png",
+            "res/mipmap-xxhdpi/ic_launcher.png",
+            "res/mipmap-xhdpi/ic_launcher.png",
+            "res/mipmap-hdpi/ic_launcher.png",
+            "res/drawable-xxxhdpi-v4/ic_launcher.png",
+            "res/drawable-xxhdpi-v4/ic_launcher.png",
+            "res/drawable-xhdpi-v4/ic_launcher.png",
+            "res/drawable-hdpi-v4/ic_launcher.png",
+            "res/drawable/icon.png",
+            "res/drawable/app_icon.png",
+        ];
+
+        for icon_path in &candidates {
+            if let Ok(output) = Command::new("unzip").args(["-p", apk_path, icon_path]).output() {
+                if output.status.success() && !output.stdout.is_empty() && output.stdout.starts_with(b"\x89PNG") {
+                    let b64 = base64_encode(&output.stdout);
+                    return Some(format!("data:image/png;base64,{}", b64));
+                }
+            }
+        }
+
+        // Fallback: scan zip directory for any matching PNG icon
+        if let Ok(output) = Command::new("unzip").args(["-l", apk_path]).output() {
+            if output.status.success() {
+                let out_str = String::from_utf8_lossy(&output.stdout);
+                for line in out_str.lines() {
+                    let trimmed = line.trim();
+                    if trimmed.ends_with(".png") && (trimmed.contains("ic_launcher") || trimmed.contains("ronud_icon") || trimmed.contains("icon")) {
+                        let parts: Vec<&str> = trimmed.split_whitespace().collect();
+                        if let Some(entry) = parts.last() {
+                            if let Ok(png_out) = Command::new("unzip").args(["-p", apk_path, entry]).output() {
+                                if png_out.status.success() && png_out.stdout.starts_with(b"\x89PNG") {
+                                    let b64 = base64_encode(&png_out.stdout);
+                                    return Some(format!("data:image/png;base64,{}", b64));
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        None
+    }
+
+    fn extract_ipa_icon_base64(ipa_path: &str) -> Option<String> {
+        if let Ok(output) = Command::new("unzip").args(["-l", ipa_path]).output() {
+            if output.status.success() {
+                let out_str = String::from_utf8_lossy(&output.stdout);
+                for line in out_str.lines() {
+                    let trimmed = line.trim();
+                    if trimmed.ends_with(".png") && (trimmed.contains("AppIcon") || trimmed.contains("Icon")) {
+                        let parts: Vec<&str> = trimmed.split_whitespace().collect();
+                        if let Some(entry) = parts.last() {
+                            if let Ok(png_out) = Command::new("unzip").args(["-p", ipa_path, entry]).output() {
+                                if png_out.status.success() && png_out.stdout.starts_with(b"\x89PNG") {
+                                    let b64 = base64_encode(&png_out.stdout);
+                                    return Some(format!("data:image/png;base64,{}", b64));
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        None
+    }
+
+    fn extract_macos_app_icon_base64(app_path: &str) -> Option<String> {
+        let p = std::path::Path::new(app_path);
+        let res_dir = p.join("Contents").join("Resources");
+        if res_dir.exists() {
+            if let Ok(entries) = std::fs::read_dir(&res_dir) {
+                for entry in entries.flatten() {
+                    let path = entry.path();
+                    if path.extension().and_then(|e| e.to_str()) == Some("icns") {
+                        let tmp_png = format!("/tmp/quickos_icon_{}.png", md5_or_simple_hash(&path.to_string_lossy()));
+                        let _ = Command::new("sips").args(["-s", "format", "png", path.to_str()?, "--out", &tmp_png]).output();
+                        if let Ok(bytes) = std::fs::read(&tmp_png) {
+                            let _ = std::fs::remove_file(&tmp_png);
+                            if bytes.starts_with(b"\x89PNG") {
+                                let b64 = base64_encode(&bytes);
+                                return Some(format!("data:image/png;base64,{}", b64));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        None
+    }
+
+    fn format_clean_app_name(file_stem: &str, os_type: &str) -> String {
+        let clean = file_stem
+            .replace(".apk", "")
+            .replace(".ipa", "")
+            .replace(".exe", "")
+            .replace(".app", "")
+            .replace(".deb", "")
+            .replace(".dmg", "")
+            .replace(".AppImage", "")
+            .replace(".iso", "");
+
+        let s = clean.replace(['_', '-'], " ");
+        let parts: Vec<&str> = s.split(|c: char| c == '.' || c == ' ').filter(|p| !p.is_empty()).collect();
+        
+        if (os_type == "android" || os_type == "ios") && parts.len() >= 2 {
+            let filtered: Vec<String> = parts.iter()
+                .filter(|p| !p.chars().all(|c| c.is_ascii_digit() || c == '.' || c == 'v'))
+                .map(|p| {
+                    let mut c = p.chars();
+                    match c.next() {
+                        None => String::new(),
+                        Some(f) => f.to_uppercase().collect::<String>() + c.as_str(),
+                    }
+                })
+                .collect();
+            if !filtered.is_empty() {
+                return filtered.join(" ");
+            }
+        }
+        
+        file_stem.to_string()
+    }
+
     fn md5_or_simple_hash(s: &str) -> u64 {
         use std::collections::hash_map::DefaultHasher;
         use std::hash::{Hash, Hasher};
@@ -845,11 +1004,12 @@ pub mod handlers {
             }
         };
 
-        let version = if lower.contains("v") {
+        let version = if lower.contains("v") || lower.contains("_1.") || lower.contains("_2.") || lower.contains("-1.") {
             let mut ver = "1.0.0".to_string();
             for part in file_stem.split(&['-', '_', ' '][..]) {
-                if (part.starts_with('v') || part.starts_with('V')) && part.chars().nth(1).map(|c| c.is_ascii_digit()).unwrap_or(false) {
-                    ver = part.to_string();
+                if (part.starts_with('v') || part.starts_with('V') || part.starts_with('1') || part.starts_with('2') || part.starts_with('0')) 
+                   && part.contains('.') {
+                    ver = if part.starts_with('v') || part.starts_with('V') { part.to_string() } else { format!("v{}", part) };
                     break;
                 }
             }
@@ -858,11 +1018,20 @@ pub mod handlers {
             "1.0.0 (Release)".to_string()
         };
 
+        let icon_data_uri = match app_type.detected_type.as_str() {
+            "android" => extract_apk_icon_base64(&file_path),
+            "ios" => extract_ipa_icon_base64(&file_path),
+            "macos" => extract_macos_app_icon_base64(&file_path),
+            _ => None,
+        };
+
+        let display_name = format_clean_app_name(&file_stem, &app_type.detected_type);
         let id = format!("{:x}", md5_or_simple_hash(&file_path));
 
         AppMetadataInfo {
             id,
             name: file_stem,
+            display_name: Some(display_name),
             file_path,
             os_type: app_type.detected_type.clone(),
             format_label: app_type.format_label,
@@ -871,6 +1040,7 @@ pub mod handlers {
             file_size_bytes,
             storage_type,
             icon_type: app_type.detected_type,
+            icon_data_uri,
         }
     }
 
