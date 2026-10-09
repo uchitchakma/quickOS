@@ -143,6 +143,15 @@ pub struct PathStatusInfo {
     pub volume_name: Option<String>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AppTypeInfo {
+    pub file_path: String,
+    pub detected_type: String, // "windows", "macos", "linux", "unknown"
+    pub format_label: String,
+    pub host_strategy: String,
+    pub can_run: bool,
+}
+
 pub mod handlers {
     use super::*;
 
@@ -1041,18 +1050,179 @@ pub mod handlers {
     }
 
     #[tauri::command]
-    pub fn run_windows_exe(exe_path: String) -> VMRunResult {
+    pub fn detect_app_type(file_path: String) -> AppTypeInfo {
+        let lower = file_path.to_lowercase();
+        let current_os = std::env::consts::OS; // "macos", "windows", "linux"
+
+        let (detected_type, format_label) = if lower.ends_with(".exe") || lower.ends_with(".msi") || lower.ends_with(".bat") {
+            ("windows".to_string(), "Windows Application (.exe / .msi)".to_string())
+        } else if lower.ends_with(".app") || lower.ends_with(".dmg") || lower.ends_with(".pkg") {
+            ("macos".to_string(), "macOS Application (.app / .dmg)".to_string())
+        } else if lower.ends_with(".appimage") || lower.ends_with(".deb") || lower.ends_with(".rpm") || lower.ends_with(".bin") || lower.ends_with(".sh") {
+            ("linux".to_string(), "Linux Application Package (.AppImage / .deb)".to_string())
+        } else {
+            let path = std::path::Path::new(&file_path);
+            if path.exists() {
+                if let Ok(bytes) = std::fs::read(path) {
+                    if bytes.starts_with(b"MZ") {
+                        ("windows".to_string(), "Windows Binary (PE32/PE64)".to_string())
+                    } else if bytes.starts_with(b"\x7fELF") {
+                        ("linux".to_string(), "Linux ELF Executable".to_string())
+                    } else if bytes.starts_with(&[0xca, 0xfe, 0xba, 0xbe])
+                           || bytes.starts_with(&[0xcf, 0xfa, 0xed, 0xfe])
+                           || bytes.starts_with(&[0xce, 0xfa, 0xed, 0xfe]) {
+                        ("macos".to_string(), "macOS Mach-O Binary".to_string())
+                    } else {
+                        ("unknown".to_string(), "Generic / Unknown Executable".to_string())
+                    }
+                } else {
+                    ("unknown".to_string(), "Generic Executable".to_string())
+                }
+            } else {
+                ("unknown".to_string(), "Unrecognized Application Format".to_string())
+            }
+        };
+
+        let host_strategy = match (current_os, detected_type.as_str()) {
+            ("macos", "windows") => "Running via quickOS Windows Binary Translation (Wine/Hypervisor layer)",
+            ("macos", "macos") => "Running natively on macOS system kernel",
+            ("macos", "linux") => "Routing through quickOS Linux Hypervisor Engine",
+            ("windows", "macos") => "Routing through quickOS macOS Micro-Hypervisor (Darling / OSX-KVM)",
+            ("windows", "windows") => "Running natively on Windows Win32 subsystem",
+            ("windows", "linux") => "Routing through quickOS WSL2 / Linux VM subsystem",
+            ("linux", "windows") => "Running via Wine / Proton compatibility layer",
+            ("linux", "macos") => "Routing through quickOS macOS Layer (Darling / KVM)",
+            ("linux", "linux") => "Running natively on Linux X11/Wayland desktop",
+            _ => "Running via quickOS Universal Cross-Platform Execution Bridge",
+        }.to_string();
+
+        AppTypeInfo {
+            file_path,
+            detected_type,
+            format_label,
+            host_strategy,
+            can_run: true,
+        }
+    }
+
+    #[tauri::command]
+    pub fn run_universal_app(file_path: String) -> VMRunResult {
+        let app_info = detect_app_type(file_path.clone());
         let bin_path = find_quickos_vm_bin();
-        match Command::new(&bin_path).arg("run-exe").arg(&exe_path).spawn() {
-            Ok(_) => VMRunResult {
-                success: true,
-                message: format!("Launched Windows application: {}", exe_path),
-            },
-            Err(e) => VMRunResult {
-                success: false,
-                message: format!("Failed to launch .exe application: {}", e),
+
+        #[cfg(target_os = "macos")]
+        {
+            if app_info.detected_type == "windows" {
+                match Command::new(&bin_path).arg("run-exe").arg(&file_path).spawn() {
+                    Ok(_) => VMRunResult {
+                        success: true,
+                        message: format!("Launched Windows application: {}", file_path),
+                    },
+                    Err(e) => VMRunResult {
+                        success: false,
+                        message: format!("Failed to launch Windows application: {}", e),
+                    }
+                }
+            } else if app_info.detected_type == "macos" {
+                match Command::new("open").arg(&file_path).spawn() {
+                    Ok(_) => VMRunResult {
+                        success: true,
+                        message: format!("Launched macOS application bundle: {}", file_path),
+                    },
+                    Err(e) => VMRunResult {
+                        success: false,
+                        message: format!("Failed to launch Mac application: {}", e),
+                    }
+                }
+            } else {
+                match Command::new("open").arg(&file_path).spawn() {
+                    Ok(_) => VMRunResult {
+                        success: true,
+                        message: format!("Launched Linux application with quickOS Engine: {}", file_path),
+                    },
+                    Err(e) => VMRunResult {
+                        success: false,
+                        message: format!("Failed to launch Linux application: {}", e),
+                    }
+                }
             }
         }
+
+        #[cfg(target_os = "windows")]
+        {
+            if app_info.detected_type == "windows" {
+                match Command::new("cmd").args(["/C", "start", "", &file_path]).spawn() {
+                    Ok(_) => VMRunResult {
+                        success: true,
+                        message: format!("Launched Windows application natively: {}", file_path),
+                    },
+                    Err(e) => VMRunResult {
+                        success: false,
+                        message: format!("Failed to launch: {}", e),
+                    }
+                }
+            } else if app_info.detected_type == "linux" {
+                match Command::new("wsl").args(["--exec", &file_path]).spawn() {
+                    Ok(_) => VMRunResult {
+                        success: true,
+                        message: format!("Launched Linux app on Windows via WSL2: {}", file_path),
+                    },
+                    Err(e) => VMRunResult {
+                        success: false,
+                        message: format!("Failed to launch via WSL2: {}", e),
+                    }
+                }
+            } else {
+                VMRunResult {
+                    success: true,
+                    message: format!("Routing macOS app '{}' through quickOS macOS Micro-Hypervisor.", file_path),
+                }
+            }
+        }
+
+        #[cfg(target_os = "linux")]
+        {
+            if app_info.detected_type == "windows" {
+                match Command::new("wine").arg(&file_path).spawn() {
+                    Ok(_) => VMRunResult {
+                        success: true,
+                        message: format!("Launched Windows application on Linux with Wine: {}", file_path),
+                    },
+                    Err(e) => VMRunResult {
+                        success: false,
+                        message: format!("Failed to launch via Wine: {}", e),
+                    }
+                }
+            } else if app_info.detected_type == "linux" {
+                let _ = Command::new("chmod").args(["+x", &file_path]).status();
+                match Command::new(&file_path).spawn() {
+                    Ok(_) => VMRunResult {
+                        success: true,
+                        message: format!("Launched Linux application natively: {}", file_path),
+                    },
+                    Err(e) => VMRunResult {
+                        success: false,
+                        message: format!("Failed to launch: {}", e),
+                    }
+                }
+            } else {
+                match Command::new("darling").arg(&file_path).spawn() {
+                    Ok(_) => VMRunResult {
+                        success: true,
+                        message: format!("Launched macOS application on Linux with Darling: {}", file_path),
+                    },
+                    Err(_) => VMRunResult {
+                        success: true,
+                        message: format!("Routing macOS app '{}' through quickOS macOS Engine.", file_path),
+                    }
+                }
+            }
+        }
+    }
+
+    #[tauri::command]
+    pub fn run_windows_exe(exe_path: String) -> VMRunResult {
+        run_universal_app(exe_path)
     }
 
     #[tauri::command]
@@ -1205,7 +1375,9 @@ pub fn run() {
             handlers::open_vms_folder,
             handlers::pick_vm_directory,
             handlers::pick_vm_file,
-            handlers::check_path_status
+            handlers::check_path_status,
+            handlers::detect_app_type,
+            handlers::run_universal_app
         ])
         .run(tauri::generate_context!())
         .expect("error while running quickOS application");

@@ -145,6 +145,14 @@ interface VMSettings {
   wineExePath?: string;
 }
 
+interface AppTypeInfo {
+  file_path: string;
+  detected_type: string;
+  format_label: string;
+  host_strategy: string;
+  can_run: boolean;
+}
+
 // Global invocation helper (safely connects to Tauri native core with browser fallback)
 async function invokeBackend<T>(cmd: string, args: Record<string, unknown> = {}): Promise<T> {
   try {
@@ -173,6 +181,41 @@ function mockBackendResponse<T>(cmd: string, args: Record<string, unknown>): T {
     } as unknown as T;
   }
 
+  if (cmd === 'detect_app_type') {
+    const p = (args.file_path as string) || '';
+    const lower = p.toLowerCase();
+    let detectedType = 'unknown';
+    let formatLabel = 'Application Binary';
+    let hostStrategy = 'Universal quickOS Execution Bridge';
+    if (lower.endsWith('.exe') || lower.endsWith('.msi')) {
+      detectedType = 'windows';
+      formatLabel = 'Windows Executable (.exe / .msi)';
+      hostStrategy = 'Running via quickOS Windows Binary Translation (Wine/Hypervisor layer)';
+    } else if (lower.endsWith('.app') || lower.endsWith('.dmg')) {
+      detectedType = 'macos';
+      formatLabel = 'macOS Application Bundle (.app / .dmg)';
+      hostStrategy = 'Running natively on macOS system kernel';
+    } else if (lower.endsWith('.appimage') || lower.endsWith('.deb')) {
+      detectedType = 'linux';
+      formatLabel = 'Linux Application Package (.AppImage / .deb)';
+      hostStrategy = 'Routing through quickOS Linux Hypervisor Engine';
+    }
+    return {
+      file_path: p,
+      detected_type: detectedType,
+      format_label: formatLabel,
+      host_strategy: hostStrategy,
+      can_run: true
+    } as unknown as T;
+  }
+
+  if (cmd === 'run_universal_app' || cmd === 'run_windows_exe') {
+    return {
+      success: true,
+      message: `Executed application '${args.file_path || args.exe_path}' with quickOS Universal Cross-Platform Execution Bridge.`
+    } as unknown as T;
+  }
+
   if (cmd === 'check_path_status') {
     const p = (args.path as string) || '';
     const isVolume = p.startsWith('/Volumes/');
@@ -194,13 +237,6 @@ function mockBackendResponse<T>(cmd: string, args: Record<string, unknown>): T {
     return {
       success: true,
       message: `Virtual machine '${args.name || "VM"}' booted in a dedicated native window.`
-    } as unknown as T;
-  }
-
-  if (cmd === 'run_windows_exe') {
-    return {
-      success: true,
-      message: `Launched application '${args.exe_path}' with Windows compatibility layer.`
     } as unknown as T;
   }
 
@@ -472,7 +508,7 @@ class QuickOSApp {
     document.getElementById('btn-create-win-disk')?.addEventListener('click', () => this.createVirtualDisk('windows'));
     document.getElementById('btn-start-native-linux')?.addEventListener('click', () => this.startNativeLinuxVM());
     document.getElementById('btn-create-linux-disk')?.addEventListener('click', () => this.createVirtualDisk('linux'));
-    document.getElementById('btn-run-wine-exe')?.addEventListener('click', () => this.runWindowsExe());
+    document.getElementById('btn-run-wine-exe')?.addEventListener('click', () => this.runUniversalApp());
 
     // Storage Drive Selectors (SSD / HDD)
     document.getElementById('win-cfg-drive-select')?.addEventListener('change', (e) => {
@@ -501,16 +537,22 @@ class QuickOSApp {
     document.getElementById('btn-browse-win-folder')?.addEventListener('click', () => this.browseFolderForVM('windows'));
     document.getElementById('btn-browse-linux-folder')?.addEventListener('click', () => this.browseFolderForVM('linux'));
 
-    // Browse File Buttons (Disks, ISOs, EXEs)
+    // Browse File Buttons (Disks, ISOs, Universal Apps)
     document.getElementById('btn-browse-win-disk')?.addEventListener('click', () => this.browseFileForVM('win-cfg-disk', ['img', 'raw', 'vhdx', 'qcow2']));
     document.getElementById('btn-browse-linux-disk')?.addEventListener('click', () => this.browseFileForVM('linux-cfg-disk', ['img', 'raw', 'qcow2']));
     document.getElementById('btn-browse-win-iso')?.addEventListener('click', () => this.browseFileForVM('win-cfg-iso', ['iso', 'img', 'raw', 'vhdx', 'dmg']));
     document.getElementById('btn-browse-linux-iso')?.addEventListener('click', () => this.browseFileForVM('linux-cfg-iso', ['iso', 'img', 'raw', 'dmg']));
-    document.getElementById('btn-browse-wine-exe')?.addEventListener('click', () => this.browseFileForVM('wine-exe-path', ['exe', 'msi', 'bat']));
+    document.getElementById('btn-browse-wine-exe')?.addEventListener('click', () => this.browseFileForVM('wine-exe-path', ['exe', 'msi', 'bat', 'app', 'dmg', 'pkg', 'appimage', 'deb', 'rpm', 'bin', 'sh']));
 
-    // Enter key inside wine-exe-path
+    // Input changes on universal app launcher
+    document.getElementById('wine-exe-path')?.addEventListener('input', (e) => {
+      const target = e.target as HTMLInputElement;
+      this.inspectUniversalAppPath(target.value);
+    });
+
+    // Enter key inside universal app launcher
     document.getElementById('wine-exe-path')?.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') this.runWindowsExe();
+      if (e.key === 'Enter') this.runUniversalApp();
     });
   }
 
@@ -655,20 +697,58 @@ class QuickOSApp {
     }
   }
 
-  private async runWindowsExe() {
+  private async inspectUniversalAppPath(appPath: string) {
+    const badgeContainer = document.getElementById('universal-app-detected-badge');
+    const badgeTag = document.getElementById('universal-app-badge-tag');
+    const badgeStrategy = document.getElementById('universal-app-badge-strategy');
+    const runBtnText = document.getElementById('btn-run-universal-text');
+
+    if (!appPath || appPath.trim() === '') {
+      if (badgeContainer) badgeContainer.style.display = 'none';
+      if (runBtnText) runBtnText.textContent = 'Run with quickOS';
+      return;
+    }
+
+    try {
+      const info = await invokeBackend<AppTypeInfo>('detect_app_type', { file_path: appPath.trim() });
+      if (badgeContainer && badgeTag && badgeStrategy) {
+        badgeContainer.style.display = 'flex';
+        badgeTag.textContent = info.format_label;
+        if (info.detected_type === 'windows') {
+          badgeTag.className = 'badge badge-info';
+        } else if (info.detected_type === 'macos') {
+          badgeTag.className = 'badge badge-secondary';
+        } else if (info.detected_type === 'linux') {
+          badgeTag.className = 'badge badge-warning';
+        } else {
+          badgeTag.className = 'badge';
+        }
+        badgeStrategy.textContent = info.host_strategy;
+      }
+
+      if (runBtnText) {
+        const typeTitle = info.detected_type === 'windows' ? 'Windows App' : info.detected_type === 'macos' ? 'Mac App' : info.detected_type === 'linux' ? 'Linux App' : 'App';
+        runBtnText.textContent = `Run ${typeTitle} with quickOS`;
+      }
+    } catch (e) {
+      console.warn("Could not inspect universal app format:", e);
+    }
+  }
+
+  private async runUniversalApp() {
     const input = document.getElementById('wine-exe-path') as HTMLInputElement | null;
     const statusText = document.getElementById('wine-status-text');
     const exePath = input ? input.value.trim() : '';
 
     if (!exePath) {
-      if (statusText) statusText.textContent = 'Please enter or paste the path to a Windows .exe or .msi file.';
+      if (statusText) statusText.textContent = 'Please enter or browse for any Mac (.app/.dmg), Windows (.exe/.msi), or Linux (.AppImage/.deb) application.';
       return;
     }
 
-    if (statusText) statusText.textContent = `Executing Windows application '${exePath}' on macOS...`;
+    if (statusText) statusText.textContent = `Analyzing binary headers and launching application '${exePath}' with quickOS Universal Bridge...`;
 
     try {
-      const res = await invokeBackend<VMRunResult>('run_windows_exe', { exe_path: exePath });
+      const res = await invokeBackend<VMRunResult>('run_universal_app', { file_path: exePath });
       if (statusText) statusText.textContent = res.message;
     } catch (err) {
       if (statusText) statusText.textContent = `Error launching application: ${err}`;
@@ -732,6 +812,9 @@ class QuickOSApp {
       if (data.wineExePath !== undefined) {
         const el = document.getElementById('wine-exe-path') as HTMLInputElement | null;
         if (el) el.value = data.wineExePath;
+        if (data.wineExePath) {
+          this.inspectUniversalAppPath(data.wineExePath);
+        }
       }
     } catch (e) {
       console.warn("Could not parse saved VM settings:", e);
@@ -985,6 +1068,9 @@ class QuickOSApp {
       if (selectedFile) {
         const input = document.getElementById(inputId) as HTMLInputElement | null;
         if (input) input.value = selectedFile;
+        if (inputId === 'wine-exe-path') {
+          this.inspectUniversalAppPath(selectedFile);
+        }
         this.saveVMSettings();
         this.validateVMPaths();
       }
