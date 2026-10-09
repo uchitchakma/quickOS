@@ -905,6 +905,66 @@ pub mod handlers {
         }
         Ok(())
     }
+
+    #[tauri::command]
+    pub async fn open_runner_window(
+        app: tauri::AppHandle,
+        app_id: String,
+        name: String,
+        file_path: String,
+        os_type: String,
+        version: Option<String>,
+        format_label: Option<String>,
+    ) -> Result<String, String> {
+        let ts = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis();
+        let safe_id = app_id.replace(|c: char| !c.is_alphanumeric() && c != '-', "_");
+        let label = format!("runner_{}_{}", safe_id, ts);
+
+        let is_mobile = os_type.to_lowercase() == "android" || os_type.to_lowercase() == "ios";
+        let width = if is_mobile { 480.0 } else { 1140.0 };
+        let height = if is_mobile { 900.0 } else { 780.0 };
+        let min_width = if is_mobile { 380.0 } else { 720.0 };
+        let min_height = if is_mobile { 540.0 } else { 500.0 };
+
+        let encode = |s: &str| -> String {
+            s.replace('%', "%25")
+             .replace(' ', "%20")
+             .replace('&', "%26")
+             .replace('=', "%3D")
+             .replace('?', "%3F")
+             .replace('#', "%23")
+             .replace('/', "%2F")
+        };
+
+        let ver = version.unwrap_or_else(|| "v1.0.0".to_string());
+        let fmt = format_label.unwrap_or_else(|| "Binary".to_string());
+
+        let query = format!(
+            "runner.html?appId={}&name={}&path={}&os={}&version={}&format={}",
+            encode(&app_id),
+            encode(&name),
+            encode(&file_path),
+            encode(&os_type),
+            encode(&ver),
+            encode(&fmt)
+        );
+
+        let title = format!("quickOS Runner — {} ({})", name, os_type.to_uppercase());
+
+        tauri::WebviewWindowBuilder::new(&app, &label, tauri::WebviewUrl::App(query.into()))
+            .title(title)
+            .inner_size(width, height)
+            .min_inner_size(min_width, min_height)
+            .resizable(true)
+            .decorations(true)
+            .build()
+            .map_err(|e| format!("Failed to create window: {}", e))?;
+
+        Ok(label)
+    }
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -926,7 +986,8 @@ pub fn run() {
             handlers::run_universal_app,
             handlers::inspect_app_metadata,
             handlers::reveal_in_finder,
-            handlers::delete_app_file
+            handlers::delete_app_file,
+            handlers::open_runner_window
         ])
         .run(tauri::generate_context!())
         .expect("error while running quickOS application");

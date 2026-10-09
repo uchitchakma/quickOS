@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>quickOS App Runner</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/src/runner.css" />
+</head>
+<body>
+  <div id="runner-app-container">
+    <!-- TOPBAR / WINDOW HEADER -->
+    <header class="runner-header" data-tauri-drag-region>
+      <div class="header-left" data-tauri-drag-region>
+        <div class="window-controls-spacer"></div>
+        <div class="app-brand-pill">
+          <div class="app-os-icon-wrapper" id="runner-os-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10"/></svg>
+          </div>
+          <div class="app-identity-info">
+            <div class="app-title-row">
+              <h1 class="app-runner-name" id="runner-app-name">Application</h1>
+              <span class="runner-badge" id="runner-os-badge">OS</span>
+              <span class="runner-badge outline" id="runner-version-badge">v1.0</span>
+            </div>
+            <div class="app-path-sub" id="runner-app-path">/path/to/binary</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="header-center" data-tauri-drag-region>
+        <div class="execution-status-pill" id="runner-status-pill">
+          <span class="pulse-dot status-dot" id="runner-pulse-dot"></span>
+          <span id="runner-status-text">INITIALIZING</span>
+        </div>
+      </div>
+
+      <div class="header-right">
+        <!-- Frame & Device Selector -->
+        <div class="header-control-group" id="group-device-selector">
+          <label class="control-label" for="select-device-frame">Viewport:</label>
+          <select id="select-device-frame" class="header-select">
+            <option value="desktop-fit">Fit to Window</option>
+            <option value="desktop-1080p">Desktop HD (1920×1080)</option>
+            <option value="desktop-1440p">Desktop 2K (2560×1440)</option>
+            <option value="iphone-16-pro">iPhone 16 Pro (393×852)</option>
+            <option value="ipad-pro">iPad Pro 11" (834×1194)</option>
+            <option value="pixel-9">Google Pixel 9 (412×915)</option>
+            <option value="galaxy-s24">Samsung Galaxy S24 (360×780)</option>
+          </select>
+        </div>
+
+        <!-- Mobile Rotate Button (Hidden for Desktop apps) -->
+        <button id="btn-rotate-viewport" class="header-btn" title="Rotate Orientation (Portrait / Landscape)" style="display: none;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+        </button>
+
+        <!-- Scale / Zoom Controls -->
+        <div class="header-control-group scale-group">
+          <button id="btn-zoom-out" class="header-btn-icon" title="Zoom Out">-</button>
+          <span id="label-zoom-level" class="zoom-level-text">100%</span>
+          <button id="btn-zoom-in" class="header-btn-icon" title="Zoom In">+</button>
+        </div>
+
+        <!-- Action Buttons -->
+        <button id="btn-runner-screenshot" class="header-btn" title="Capture Screenshot">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+          <span class="btn-text">Snapshot</span>
+        </button>
+
+        <button id="btn-toggle-inspector" class="header-btn" title="Inspect Binary & System Headers">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+          <span class="btn-text">Inspect</span>
+        </button>
+
+        <button id="btn-toggle-console" class="header-btn active" title="Toggle Live Execution Logs">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
+          <span class="btn-text">Terminal</span>
+          <span class="badge-count" id="unread-log-count">0</span>
+        </button>
+
+        <button id="btn-runner-restart" class="header-btn" title="Relaunch Application">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path></svg>
+          <span class="btn-text">Restart</span>
+        </button>
+
+        <button id="btn-runner-pause" class="header-btn" title="Pause / Resume Execution">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" id="icon-pause-play"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>
+          <span class="btn-text" id="label-pause-play">Pause</span>
+        </button>
+
+        <button id="btn-runner-terminate" class="header-btn btn-danger" title="Force Terminate Process">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="5" width="14" height="14" rx="2"></rect></svg>
+          <span class="btn-text">Stop</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- MAIN RUNNER WORKSPACE -->
+    <main class="runner-workspace">
+      <!-- CENTER VIEWPORT WRAPPER -->
+      <div class="viewport-stage" id="viewport-stage">
+        <!-- DYNAMIC DEVICE / DESKTOP VIEWPORT CONTAINER -->
+        <div class="device-frame" id="device-frame">
+          <!-- MOBILE PHONE / TABLET BEZEL (Visible in Mobile Mode) -->
+          <div class="mobile-bezel-top" id="mobile-bezel-top">
+            <div class="dynamic-island" id="dynamic-island">
+              <div class="camera-lens"></div>
+              <div class="sensor-indicator"></div>
+            </div>
+            <div class="mobile-status-bar">
+              <span class="mobile-status-time" id="mobile-time">09:41</span>
+              <div class="mobile-status-icons">
+                <svg width="14" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3c-4.97 0-9 4.03-9 9 0 2.12.74 4.07 1.97 5.61L12 22l7.03-4.39C20.26 16.07 21 14.12 21 12c0-4.97-4.03-9-9-9z"/></svg>
+                <svg width="14" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M1 9l2 2c4.97-4.97 13.03-4.97 18 0l2-2C16.93 2.93 7.08 2.93 1 9zm8 8l3 3 3-3c-1.65-1.66-4.34-1.66-6 0zm-4-4l2 2c2.76-2.76 7.24-2.76 10 0l2-2C15.14 9.14 8.87 9.14 5 13z"/></svg>
+                <span class="mobile-batt">100%</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- DESKTOP WINDOW TITLEBAR (Visible in Desktop Mode) -->
+          <div class="desktop-window-bar" id="desktop-window-bar">
+            <div class="desktop-traffic-lights">
+              <span class="dot-close"></span>
+              <span class="dot-min"></span>
+              <span class="dot-max"></span>
+            </div>
+            <div class="desktop-window-title" id="desktop-canvas-title">Application Display</div>
+            <div class="desktop-meta-tag" id="desktop-canvas-res">1920 × 1080 (Metal 3 JIT)</div>
+          </div>
+
+          <!-- ACTIVE INTERACTIVE DISPLAY CANVAS -->
+          <div class="app-display-canvas" id="app-display-canvas">
+            <!-- Simulated Native App Surface -->
+            <div class="simulated-app-surface" id="simulated-app-surface">
+              <!-- Content generated dynamically based on App Type -->
+              <div class="app-mock-content" id="app-mock-content">
+                <div class="app-splash-loader">
+                  <div class="spinner-ring"></div>
+                  <div class="splash-text">Launching with quickOS Universal Subsystem...</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- MOBILE HOME BAR INDICATOR (Visible in Mobile Mode) -->
+          <div class="mobile-bezel-bottom" id="mobile-bezel-bottom">
+            <div class="home-indicator-bar"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- COLLAPSIBLE LIVE EXECUTION LOGS & TERMINAL DRAWER -->
+      <aside class="runner-console-drawer" id="runner-console-drawer">
+        <div class="console-drawer-header">
+          <div class="console-drawer-title">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
+            <span>Live Subsystem Terminal & Execution Stream</span>
+          </div>
+          <div class="console-drawer-actions">
+            <div class="log-filter-chips">
+              <button class="filter-chip active" data-filter="all">ALL</button>
+              <button class="filter-chip" data-filter="info">INFO</button>
+              <button class="filter-chip" data-filter="warn">WARN</button>
+              <button class="filter-chip" data-filter="error">ERR</button>
+            </div>
+            <button id="btn-clear-logs" class="drawer-btn-icon" title="Clear Terminal Logs">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+            </button>
+            <button id="btn-copy-logs" class="drawer-btn-icon" title="Copy Logs to Clipboard">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+            </button>
+            <button id="btn-close-console" class="drawer-btn-icon" title="Collapse Terminal Drawer">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="console-output-body" id="console-output-body">
+          <!-- Terminal log entries stream here -->
+        </div>
+
+        <div class="console-input-row">
+          <span class="console-prompt">quickos&gt;</span>
+          <input type="text" id="console-input" class="console-input" placeholder="Type test command, signal (e.g. status, inspect, reload, sigterm)..." />
+          <button id="btn-send-command" class="console-send-btn">Send</button>
+        </div>
+      </aside>
+    </main>
+
+    <!-- LIVE TELEMETRY FOOTER BAR -->
+    <footer class="runner-footer">
+      <div class="telemetry-group">
+        <div class="tel-item">
+          <span class="tel-label">CPU:</span>
+          <strong class="tel-val" id="tel-cpu-val">2.4%</strong>
+          <div class="mini-prog-track"><div class="mini-prog-fill" id="tel-cpu-fill" style="width: 24%;"></div></div>
+        </div>
+        <div class="tel-item">
+          <span class="tel-label">RAM:</span>
+          <strong class="tel-val" id="tel-ram-val">128.4 MB</strong>
+        </div>
+        <div class="tel-item">
+          <span class="tel-label">FPS:</span>
+          <strong class="tel-val" id="tel-fps-val" style="color: #10B981;">60.0 FPS</strong>
+        </div>
+      </div>
+
+      <div class="telemetry-group center">
+        <div class="tel-item">
+          <span class="tel-label">Bridge Layer:</span>
+          <span class="tel-val-tag" id="tel-bridge-layer">Direct Silicon JIT</span>
+        </div>
+        <div class="tel-item">
+          <span class="tel-label">Architecture:</span>
+          <span class="tel-val-tag" id="tel-arch-tag">ARM64 / x86_64</span>
+        </div>
+      </div>
+
+      <div class="telemetry-group right">
+        <div class="tel-item" id="tel-storage-item">
+          <span class="tel-label">Storage:</span>
+          <span class="tel-val-muted" id="tel-storage-name">Internal APFS Volume</span>
+        </div>
+        <div class="tel-item">
+          <span class="tel-badge-brand">quickOS Universal Runner</span>
+        </div>
+      </div>
+    </footer>
+
+    <!-- MODAL: BINARY HEADERS & ARCHITECTURE INSPECTOR -->
+    <div class="modal-backdrop" id="modal-inspector" style="display: none;">
+      <div class="modal-card">
+        <div class="modal-header">
+          <div class="modal-title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+            <span>Binary Header & Execution Architecture Inspector</span>
+          </div>
+          <button class="btn-close-modal" id="btn-close-inspector">&times;</button>
+        </div>
+
+        <div class="modal-body">
+          <div class="inspector-summary-banner">
+            <div class="inspector-app-icon" id="insp-app-icon"></div>
+            <div>
+              <h3 id="insp-app-name" style="font-size: 16px; margin: 0 0 4px; color: var(--text-primary);">Application Name</h3>
+              <p id="insp-app-path" style="font-size: 12px; margin: 0; color: var(--text-muted); font-family: var(--font-mono); word-break: break-all;">/path/to/app</p>
+            </div>
+          </div>
+
+          <div class="inspector-table-container">
+            <table class="inspector-table">
+              <tbody>
+                <tr>
+                  <td>Binary Format</td>
+                  <td id="insp-format">PE32+ / Mach-O / ELF64</td>
+                </tr>
+                <tr>
+                  <td>Target Operating System</td>
+                  <td id="insp-os">Windows / macOS / Linux / Android / iOS</td>
+                </tr>
+                <tr>
+                  <td>Target Processor Arch</td>
+                  <td id="insp-arch">ARM64 / x86_64 Multi-Arch</td>
+                </tr>
+                <tr>
+                  <td>Package Version</td>
+                  <td id="insp-version">v1.0.0</td>
+                </tr>
+                <tr>
+                  <td>Binary Payload Size</td>
+                  <td id="insp-size">-- MB</td>
+                </tr>
+                <tr>
+                  <td>Host Execution Routing</td>
+                  <td id="insp-strategy">quickOS Native Hypervisor Subsystem</td>
+                </tr>
+                <tr>
+                  <td>GPU Rendering Context</td>
+                  <td>Metal 3 Hardware Framebuffer / Vulkan-MoltenVK</td>
+                </tr>
+                <tr>
+                  <td>Storage Source</td>
+                  <td id="insp-storage">High-Speed Local Storage</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn-primary" id="btn-modal-dismiss">Done</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="/src/runner.ts"></script>
+</body>
+</html>
