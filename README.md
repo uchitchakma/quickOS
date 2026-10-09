@@ -83,12 +83,10 @@ Run applications seamlessly across platforms:
 * **Persistent Configuration:** Automatically saves and restores all your custom installation paths, disk images, ISO paths, vCPUs, and RAM configurations across app reboots.
 * **Automatic Disconnect / Reconnect Detection:** Background telemetry monitors drive mount status every 4 seconds. If an external SSD is disconnected, quickOS protects the VM and displays a warning (`⚠️ External Drive Disconnected`); as soon as you plug it back in, quickOS detects it and re-enables controls without losing your settings.
 
-### 📊 5. Integrated System & Hardware Diagnostics Suite
-* **Real-time Telemetry:** Live CPU multi-core load, RAM usage, swap space, and battery charge status.
-* **Wi-Fi & Airwaves Scanner:** Discovers surrounding 2.4GHz & 5GHz Wi-Fi access points with RSSI signal meters, BSSID, and security protocols.
-* **Bluetooth Accessories:** Inventory of connected/paired Bluetooth devices (keyboards, mice, AirPods, headsets).
-* **Hardware Benchmarks:** Safe in-memory CPU floating-point benchmarking, RAM bus throughput, and storage sector I/O validation.
-* **ICMP Ping Tester:** Live DNS resolution and low-latency round-trip response timing.
+### 📱 5. Universal App Library & Multi-Platform Testing Suite
+* **All-in-One Cross-Platform Library:** Manage and categorize macOS, Windows, Linux, Android, and iOS apps in a single streamlined dashboard.
+* **Smart Binary Analysis:** Auto-detects target OS platform, binary architecture (ARM64 vs x86_64), file formats, release versions, and storage paths.
+* **1-Click Execution & Management:** Directly launch apps through the quickOS execution bridge, reveal their location in Finder / Explorer, or remove them with full state persistence.
 
 ---
 

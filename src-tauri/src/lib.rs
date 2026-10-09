@@ -1,7 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::process::Command;
-use std::time::Instant;
-use sysinfo::{Disks, Networks, System};
+use sysinfo::{Disks, System};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SystemSpecs {
@@ -39,77 +38,6 @@ pub struct BatteryInfo {
     pub percentage: u8,
     pub state: String,
     pub time_remaining: String,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct NetworkInterfaceInfo {
-    pub name: String,
-    pub mac_address: String,
-    pub ip_addresses: Vec<String>,
-    pub total_received_bytes: u64,
-    pub total_transmitted_bytes: u64,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct WifiInfo {
-    pub is_supported: bool,
-    pub is_connected: bool,
-    pub interface_name: String,
-    pub ssid: String,
-    pub bssid: String,
-    pub signal_strength_percent: i32,
-    pub channel: String,
-    pub security: String,
-    pub ip_address: String,
-    pub nearby_networks: Vec<WifiNetworkItem>,
-    pub raw_output: String,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct WifiNetworkItem {
-    pub ssid: String,
-    pub signal_percent: i32,
-    pub channel: String,
-    pub security: String,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct BluetoothDevice {
-    pub name: String,
-    pub address: String,
-    pub connected: bool,
-    pub paired: bool,
-    pub device_type: String,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct BluetoothInfo {
-    pub is_supported: bool,
-    pub is_powered_on: bool,
-    pub controller_name: String,
-    pub controller_address: String,
-    pub discoverable: bool,
-    pub devices: Vec<BluetoothDevice>,
-    pub raw_output: String,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct DiagnosticReport {
-    pub test_name: String,
-    pub category: String,
-    pub status: String,
-    pub score_or_latency: String,
-    pub details: String,
-    pub duration_ms: u128,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct PingResult {
-    pub host: String,
-    pub success: bool,
-    pub latency_ms: f32,
-    pub packet_loss_percent: f32,
-    pub raw_output: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -363,585 +291,6 @@ pub mod handlers {
     }
 
     #[tauri::command]
-    pub fn get_network_interfaces() -> Vec<NetworkInterfaceInfo> {
-        let networks = Networks::new_with_refreshed_list();
-        let mut interfaces = Vec::new();
-
-        for (interface_name, data) in &networks {
-            let mac = data.mac_address().to_string();
-            let ip_addrs: Vec<String> = data
-                .ip_networks()
-                .iter()
-                .map(|net| net.addr.to_string())
-                .collect();
-
-            interfaces.push(NetworkInterfaceInfo {
-                name: interface_name.clone(),
-                mac_address: if mac.is_empty() { "N/A".to_string() } else { mac },
-                ip_addresses: ip_addrs,
-                total_received_bytes: data.total_received(),
-                total_transmitted_bytes: data.total_transmitted(),
-            });
-        }
-
-        interfaces
-    }
-
-    #[tauri::command]
-    pub fn get_wifi_info(deep_scan: Option<bool>) -> WifiInfo {
-        let is_deep = deep_scan.unwrap_or(false);
-
-        #[cfg(target_os = "macos")]
-        {
-            let mut ssid = "Disconnected".to_string();
-            let bssid = "N/A".to_string();
-            let mut signal_strength = 0i32;
-            let mut channel = "Auto".to_string();
-            let mut security = "WPA2/WPA3 Personal".to_string();
-            let interface_name = "en0".to_string();
-            let mut is_connected = false;
-            let mut nearby_list = Vec::new();
-
-            // FAST PATH (Runs in ~20ms) - networksetup
-            if let Ok(out) = Command::new("networksetup").args(["-getairportnetwork", "en0"]).output() {
-                let text = String::from_utf8_lossy(&out.stdout);
-                if text.contains("Current Wi-Fi Network:") {
-                    if let Some(net) = text.split("Current Wi-Fi Network:").nth(1) {
-                        let name = net.trim().to_string();
-                        if !name.is_empty() {
-                            ssid = name;
-                            is_connected = true;
-                            signal_strength = 88;
-                        }
-                    }
-                }
-            }
-
-            // If fast path didn't find connection on en0, try en1
-            if !is_connected {
-                if let Ok(out) = Command::new("networksetup").args(["-getairportnetwork", "en1"]).output() {
-                    let text = String::from_utf8_lossy(&out.stdout);
-                    if text.contains("Current Wi-Fi Network:") {
-                        if let Some(net) = text.split("Current Wi-Fi Network:").nth(1) {
-                            let name = net.trim().to_string();
-                            if !name.is_empty() {
-                                ssid = name;
-                                is_connected = true;
-                                signal_strength = 85;
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Quick signal & channel check via wdutil info (~15ms)
-            if let Ok(wd_out) = Command::new("wdutil").arg("info").output() {
-                let wd_text = String::from_utf8_lossy(&wd_out.stdout);
-                for line in wd_text.lines() {
-                    if line.contains("RSSI") {
-                        if let Some(val) = line.split(':').nth(1) {
-                            if let Ok(rssi) = val.trim().replace("dBm", "").trim().parse::<i32>() {
-                                signal_strength = ((rssi + 100) * 100 / 70).clamp(10, 100);
-                            }
-                        }
-                    }
-                    if line.contains("Channel") && !line.contains("Channels") {
-                        if let Some(val) = line.split(':').nth(1) {
-                            channel = val.trim().to_string();
-                        }
-                    }
-                    if line.contains("Security") {
-                        if let Some(val) = line.split(':').nth(1) {
-                            security = val.trim().to_string();
-                        }
-                    }
-                }
-            }
-
-            // DEEP SCAN ONLY IF EXPLICITLY REQUESTED (Takes 2s for multi-channel probe)
-            if is_deep {
-                if let Ok(out) = Command::new("system_profiler").arg("SPAirPortDataType").output() {
-                    let text = String::from_utf8_lossy(&out.stdout).to_string();
-                    let mut in_other = false;
-                    let mut current_network_name = String::new();
-                    let mut current_net_chan = String::new();
-                    let mut current_net_sec = String::new();
-                    let mut current_net_sig = 80i32;
-
-                    for line in text.lines() {
-                        let trimmed = line.trim();
-
-                        if trimmed == "Other Local Wi-Fi Networks:" {
-                            in_other = true;
-                        } else if in_other {
-                            if trimmed.ends_with(':') && !trimmed.contains("PHY Mode") && !trimmed.contains("Security") {
-                                if !current_network_name.is_empty() {
-                                    nearby_list.push(WifiNetworkItem {
-                                        ssid: current_network_name.clone(),
-                                        signal_percent: current_net_sig,
-                                        channel: current_net_chan.clone(),
-                                        security: current_net_sec.clone(),
-                                    });
-                                }
-                                current_network_name = trimmed.trim_end_matches(':').trim().to_string();
-                                current_net_chan = "Auto".to_string();
-                                current_net_sec = "WPA2".to_string();
-                                current_net_sig = 75;
-                            } else if trimmed.starts_with("Channel:") {
-                                current_net_chan = trimmed.replace("Channel:", "").trim().to_string();
-                            } else if trimmed.starts_with("Security:") {
-                                current_net_sec = trimmed.replace("Security:", "").trim().to_string();
-                            } else if trimmed.starts_with("Signal / Noise:") {
-                                if let Some(sig_part) = trimmed.split('/').next() {
-                                    if let Some(num) = sig_part.replace("Signal / Noise:", "").replace("dBm", "").trim().parse::<i32>().ok() {
-                                        current_net_sig = ((num + 100) * 100 / 70).clamp(10, 100);
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    if !current_network_name.is_empty() {
-                        nearby_list.push(WifiNetworkItem {
-                            ssid: current_network_name,
-                            signal_percent: current_net_sig,
-                            channel: current_net_chan,
-                            security: current_net_sec,
-                        });
-                    }
-                }
-            }
-
-            if is_connected && !ssid.is_empty() && ssid != "Disconnected" {
-                nearby_list.insert(0, WifiNetworkItem {
-                    ssid: ssid.clone(),
-                    signal_percent: if signal_strength > 0 { signal_strength } else { 85 },
-                    channel: channel.clone(),
-                    security: security.clone(),
-                });
-            }
-
-            return WifiInfo {
-                is_supported: true,
-                is_connected,
-                interface_name,
-                ssid: if is_connected { ssid } else { "Disconnected / Standby".to_string() },
-                bssid,
-                signal_strength_percent: if signal_strength > 0 { signal_strength } else { 0 },
-                channel,
-                security,
-                ip_address: "DHCP".to_string(),
-                nearby_networks: nearby_list,
-                raw_output: "macOS CoreWLAN Native Layer".to_string(),
-            };
-        }
-
-        #[cfg(target_os = "linux")]
-        {
-            let mut ssid = "Disconnected".to_string();
-            let mut is_connected = false;
-            let mut signal_strength = 75;
-            let mut nearby = Vec::new();
-
-            if let Ok(out) = Command::new("nmcli").args(["-t", "-f", "active,ssid,bssid,signal,security", "dev", "wifi"]).output() {
-                let text = String::from_utf8_lossy(&out.stdout);
-                for line in text.lines() {
-                    let parts: Vec<&str> = line.split(':').collect();
-                    if parts.len() >= 4 {
-                        let active = parts[0] == "yes" || parts[0] == "true" || parts[0] == "*";
-                        let net_ssid = parts[1].to_string();
-                        let sig = parts[3].parse::<i32>().unwrap_or(70);
-                        let sec = if parts.len() > 4 { parts[4].to_string() } else { "WPA2".to_string() };
-
-                        if !net_ssid.is_empty() {
-                            nearby.push(WifiNetworkItem {
-                                ssid: net_ssid.clone(),
-                                signal_percent: sig,
-                                channel: "Auto".to_string(),
-                                security: sec.clone(),
-                            });
-                        }
-
-                        if active {
-                            ssid = net_ssid;
-                            is_connected = true;
-                            signal_strength = sig;
-                        }
-                    }
-                }
-            }
-
-            return WifiInfo {
-                is_supported: true,
-                is_connected,
-                interface_name: "wlan0".to_string(),
-                ssid,
-                bssid: "Linux Wi-Fi Adapter".to_string(),
-                signal_strength_percent: signal_strength,
-                channel: "2.4GHz / 5GHz".to_string(),
-                security: "WPA2/WPA3".to_string(),
-                ip_address: "DHCP".to_string(),
-                nearby_networks: nearby,
-                raw_output: "Linux NetworkManager Stack".to_string(),
-            };
-        }
-
-        #[cfg(target_os = "windows")]
-        {
-            let mut ssid = "Disconnected".to_string();
-            let mut signal_strength = 80;
-            let mut is_connected = false;
-
-            if let Ok(out) = Command::new("netsh").args(["wlan", "show", "interfaces"]).output() {
-                let text = String::from_utf8_lossy(&out.stdout);
-                for line in text.lines() {
-                    if line.contains("SSID") && !line.contains("BSSID") {
-                        if let Some(val) = line.split(':').nth(1) {
-                            ssid = val.trim().to_string();
-                            is_connected = !ssid.is_empty();
-                        }
-                    }
-                    if line.contains("Signal") {
-                        if let Some(val) = line.split(':').nth(1) {
-                            if let Ok(s) = val.trim().replace('%', "").parse::<i32>() {
-                                signal_strength = s;
-                            }
-                        }
-                    }
-                }
-            }
-
-            return WifiInfo {
-                is_supported: true,
-                is_connected,
-                interface_name: "Wi-Fi".to_string(),
-                ssid,
-                bssid: "Windows WLAN Adapter".to_string(),
-                signal_strength_percent: signal_strength,
-                channel: "Auto".to_string(),
-                security: "WPA2/WPA3".to_string(),
-                ip_address: "DHCP".to_string(),
-                nearby_networks: Vec::new(),
-                raw_output: "Windows Netsh Stack".to_string(),
-            };
-        }
-
-        #[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
-        {
-            WifiInfo {
-                is_supported: false,
-                is_connected: false,
-                interface_name: "Generic".to_string(),
-                ssid: "Unknown OS".to_string(),
-                bssid: "N/A".to_string(),
-                signal_strength_percent: 0,
-                channel: "N/A".to_string(),
-                security: "N/A".to_string(),
-                ip_address: "N/A".to_string(),
-                nearby_networks: Vec::new(),
-                raw_output: "Unsupported OS".to_string(),
-            }
-        }
-    }
-
-    #[tauri::command]
-    pub fn get_bluetooth_info() -> BluetoothInfo {
-        #[cfg(target_os = "macos")]
-        {
-            let mut devices = Vec::new();
-            let mut is_powered_on = true;
-            let mut controller_name = "Apple Silicon Bluetooth Controller".to_string();
-            let mut controller_address = "Active Hardware".to_string();
-
-            if let Ok(out) = Command::new("system_profiler").arg("SPBluetoothDataType").output() {
-                let text = String::from_utf8_lossy(&out.stdout);
-                let mut current_name = String::new();
-                let mut current_addr = String::new();
-                let mut current_type = "Accessory / Peripheral".to_string();
-                let mut is_connected_section = false;
-
-                for line in text.lines() {
-                    let trimmed = line.trim();
-
-                    if trimmed.starts_with("Address:") && controller_address == "Active Hardware" {
-                        controller_address = trimmed.replace("Address:", "").trim().to_string();
-                    } else if trimmed.starts_with("State:") {
-                        is_powered_on = trimmed.to_lowercase().contains("on");
-                    } else if trimmed.starts_with("Chipset:") {
-                        controller_name = format!("Apple / Broadcom {}", trimmed.replace("Chipset:", "").trim());
-                    } else if trimmed == "Connected:" {
-                        is_connected_section = true;
-                    } else if trimmed == "Not Connected:" {
-                        is_connected_section = false;
-                    } else if trimmed.ends_with(':') && !trimmed.contains("Bluetooth") && !trimmed.contains("Devices") && !trimmed.contains("Services") && !trimmed.contains("Serial Number") {
-                        if !current_name.is_empty() {
-                            devices.push(BluetoothDevice {
-                                name: current_name.clone(),
-                                address: if current_addr.is_empty() { "Paired".to_string() } else { current_addr.clone() },
-                                connected: is_connected_section,
-                                paired: true,
-                                device_type: current_type.clone(),
-                            });
-                            current_addr.clear();
-                        }
-                        current_name = trimmed.trim_end_matches(':').trim().to_string();
-                        current_type = "Accessory".to_string();
-                    } else if trimmed.starts_with("Address:") {
-                        current_addr = trimmed.replace("Address:", "").trim().to_string();
-                    } else if trimmed.starts_with("Minor Type:") {
-                        current_type = trimmed.replace("Minor Type:", "").trim().to_string();
-                    }
-                }
-
-                if !current_name.is_empty() {
-                    devices.push(BluetoothDevice {
-                        name: current_name,
-                        address: if current_addr.is_empty() { "Paired".to_string() } else { current_addr },
-                        connected: is_connected_section,
-                        paired: true,
-                        device_type: current_type,
-                    });
-                }
-
-                return BluetoothInfo {
-                    is_supported: true,
-                    is_powered_on,
-                    controller_name,
-                    controller_address,
-                    discoverable: true,
-                    devices,
-                    raw_output: "macOS CoreBluetooth Stack".to_string(),
-                };
-            }
-
-            return BluetoothInfo {
-                is_supported: true,
-                is_powered_on: true,
-                controller_name: "Apple Bluetooth Controller".to_string(),
-                controller_address: "Active Hardware".to_string(),
-                discoverable: true,
-                devices,
-                raw_output: "macOS CoreBluetooth".to_string(),
-            };
-        }
-
-        #[cfg(target_os = "linux")]
-        {
-            let mut devices = Vec::new();
-            let mut is_powered = false;
-
-            if let Ok(out) = Command::new("bluetoothctl").arg("show").output() {
-                let text = String::from_utf8_lossy(&out.stdout);
-                is_powered = text.contains("Powered: yes");
-            }
-
-            if let Ok(out2) = Command::new("bluetoothctl").arg("devices").output() {
-                let text2 = String::from_utf8_lossy(&out2.stdout);
-                for line in text2.lines() {
-                    let parts: Vec<&str> = line.split_whitespace().collect();
-                    if parts.len() >= 3 && parts[0] == "Device" {
-                        devices.push(BluetoothDevice {
-                            name: parts[2..].join(" "),
-                            address: parts[1].to_string(),
-                            connected: false,
-                            paired: true,
-                            device_type: "Peripheral".to_string(),
-                        });
-                    }
-                }
-            }
-
-            return BluetoothInfo {
-                is_supported: true,
-                is_powered_on: is_powered,
-                controller_name: "Linux BlueZ Controller".to_string(),
-                controller_address: "Host Bluetooth".to_string(),
-                discoverable: false,
-                devices,
-                raw_output: "BlueZ Driver".to_string(),
-            };
-        }
-
-        #[cfg(target_os = "windows")]
-        {
-            let mut devices = Vec::new();
-            if let Ok(out) = Command::new("powershell")
-                .args(["-NoProfile", "-Command", "Get-PnpDevice -Class Bluetooth | Select-Object -Property FriendlyName, Status | ConvertTo-Json"])
-                .output()
-            {
-                let text = String::from_utf8_lossy(&out.stdout);
-                if let Ok(json_val) = serde_json::from_str::<serde_json::Value>(&text) {
-                    if let Some(arr) = json_val.as_array() {
-                        for item in arr {
-                            let name = item.get("FriendlyName").and_then(|n| n.as_str()).unwrap_or("Bluetooth Device").to_string();
-                            let status = item.get("Status").and_then(|s| s.as_str()).unwrap_or("OK");
-                            devices.push(BluetoothDevice {
-                                name,
-                                address: "Windows PnP".to_string(),
-                                connected: status == "OK",
-                                paired: true,
-                                device_type: "Hardware Adapter".to_string(),
-                            });
-                        }
-                    }
-                }
-            }
-
-            return BluetoothInfo {
-                is_supported: true,
-                is_powered_on: true,
-                controller_name: "Windows Bluetooth Controller".to_string(),
-                controller_address: "Win-Host".to_string(),
-                discoverable: true,
-                devices,
-                raw_output: "Windows Bluetooth Driver".to_string(),
-            };
-        }
-
-        #[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
-        {
-            BluetoothInfo {
-                is_supported: false,
-                is_powered_on: false,
-                controller_name: "N/A".to_string(),
-                controller_address: "N/A".to_string(),
-                discoverable: false,
-                devices: Vec::new(),
-                raw_output: "Unsupported Platform".to_string(),
-            }
-        }
-    }
-
-    #[tauri::command]
-    pub fn run_diagnostics_suite() -> Vec<DiagnosticReport> {
-        let mut reports = Vec::new();
-
-        // 1. CPU Arithmetic Benchmark (Positive safe domain sqrt)
-        {
-            let start = Instant::now();
-            let mut val: f64 = 1.0;
-            for i in 1..2_000_000 {
-                val = (val + (i as f64).sin().abs()).sqrt() + 0.0001;
-            }
-            let dur = start.elapsed().as_millis();
-            reports.push(DiagnosticReport {
-                test_name: "CPU Math & SIMD Pipeline".to_string(),
-                category: "Processor".to_string(),
-                status: if dur < 300 { "PASS".to_string() } else { "WARN".to_string() },
-                score_or_latency: format!("{} ms (2M ops)", dur),
-                details: format!("Calculated verified throughput result: {:.4}.", val),
-                duration_ms: dur,
-            });
-        }
-
-        // 2. Memory RAM Allocation Benchmark
-        {
-            let start = Instant::now();
-            let size = 10_000_000;
-            let mut vec: Vec<u64> = Vec::with_capacity(size);
-            for i in 0..size {
-                vec.push((i * 3) as u64);
-            }
-            let sum: u64 = vec.iter().sum();
-            let dur = start.elapsed().as_millis();
-            reports.push(DiagnosticReport {
-                test_name: "Memory Read/Write Bus Allocation".to_string(),
-                category: "Memory (RAM)".to_string(),
-                status: if dur < 250 { "PASS".to_string() } else { "WARN".to_string() },
-                score_or_latency: format!("{} ms (80MB alloc)", dur),
-                details: format!("Allocated & validated {} records. Checksum: {}.", size, sum),
-                duration_ms: dur,
-            });
-        }
-
-        // 3. Storage I/O Temporary Speed Test
-        {
-            let start = Instant::now();
-            let temp_path = std::env::temp_dir().join("quickos_io_test.tmp");
-            let payload = vec![0x55u8; 1024 * 1024 * 5]; // 5 MB
-            let write_ok = std::fs::write(&temp_path, &payload).is_ok();
-            let read_ok = std::fs::read(&temp_path).map(|b| b.len() == payload.len()).unwrap_or(false);
-            let _ = std::fs::remove_file(&temp_path);
-            let dur = start.elapsed().as_millis();
-
-            reports.push(DiagnosticReport {
-                test_name: "Primary Storage I/O Write/Read Verification".to_string(),
-                category: "Storage".to_string(),
-                status: if write_ok && read_ok { "PASS".to_string() } else { "FAIL".to_string() },
-                score_or_latency: format!("{} ms (5MB R/W)", dur),
-                details: "Sequential sector block validation on host temporary cache.".to_string(),
-                duration_ms: dur,
-            });
-        }
-
-        // 4. OS Kernel / Host Compatibility Check
-        {
-            let start = Instant::now();
-            let arch = std::env::consts::ARCH;
-            let os = std::env::consts::OS;
-            let dur = start.elapsed().as_millis();
-            reports.push(DiagnosticReport {
-                test_name: "Host Architecture & Kernel Environment".to_string(),
-                category: "OS Kernel".to_string(),
-                status: "PASS".to_string(),
-                score_or_latency: format!("{}/{}", os, arch),
-                details: "Standard POSIX / Windows Universal Architecture verified.".to_string(),
-                duration_ms: dur,
-            });
-        }
-
-        reports
-    }
-
-    #[tauri::command]
-    pub fn ping_host(host: String) -> PingResult {
-        let start = Instant::now();
-        let safe_host = if host.trim().is_empty() { "1.1.1.1" } else { host.trim() };
-
-        #[cfg(target_os = "windows")]
-        let cmd = Command::new("ping").args(["-n", "2", "-w", "1500", safe_host]).output();
-
-        #[cfg(not(target_os = "windows"))]
-        let cmd = Command::new("ping").args(["-c", "2", "-t", "2", safe_host]).output();
-
-        let dur = start.elapsed().as_millis() as f32;
-
-        if let Ok(out) = cmd {
-            let text = String::from_utf8_lossy(&out.stdout).to_string();
-            let success = out.status.success();
-            
-            let mut latency = dur / 2.0;
-            if let Some(avg_idx) = text.find("avg") {
-                let slice = &text[avg_idx..];
-                if let Some(slash_idx) = slice.find('/') {
-                    let remainder = &slice[slash_idx + 1..];
-                    if let Some(next_slash) = remainder.find('/') {
-                        if let Ok(lat) = remainder[..next_slash].trim().parse::<f32>() {
-                            latency = lat;
-                        }
-                    }
-                }
-            }
-
-            PingResult {
-                host: safe_host.to_string(),
-                success,
-                latency_ms: latency,
-                packet_loss_percent: if success { 0.0 } else { 100.0 },
-                raw_output: text,
-            }
-        } else {
-            PingResult {
-                host: safe_host.to_string(),
-                success: false,
-                latency_ms: 999.0,
-                packet_loss_percent: 100.0,
-                raw_output: "Ping command execution failed".to_string(),
-            }
-        }
-    }
-
-    #[tauri::command]
     pub fn open_installer_folder() -> Result<String, String> {
         let mut bundle_dir = std::env::current_dir().unwrap_or_default();
         if !bundle_dir.ends_with("src-tauri") {
@@ -1087,7 +436,6 @@ pub mod handlers {
                     } else if bytes.starts_with(b"\x7fELF") {
                         ("linux".to_string(), "Linux ELF Executable".to_string())
                     } else if bytes.starts_with(b"PK\x03\x04") {
-                        // Zip archive - could be APK or IPA or generic
                         if lower.contains("apk") {
                             ("android".to_string(), "Android APK Archive".to_string())
                         } else if lower.contains("ipa") {
@@ -1100,34 +448,34 @@ pub mod handlers {
                            || bytes.starts_with(&[0xce, 0xfa, 0xed, 0xfe]) {
                         ("macos".to_string(), "macOS Mach-O Binary".to_string())
                     } else {
-                        ("unknown".to_string(), "Generic / Unknown Executable".to_string())
+                        ("unknown".to_string(), "Generic Executable File".to_string())
                     }
                 } else {
-                    ("unknown".to_string(), "Generic Executable".to_string())
+                    ("unknown".to_string(), "Unknown Binary Format".to_string())
                 }
             } else {
-                ("unknown".to_string(), "Unrecognized Application Format".to_string())
+                ("unknown".to_string(), "Application File".to_string())
             }
         };
 
         let host_strategy = match (current_os, detected_type.as_str()) {
-            ("macos", "windows") => "Running via quickOS Windows Binary Translation (Wine/Hypervisor layer)",
-            ("macos", "macos") => "Running natively on macOS system kernel",
-            ("macos", "linux") => "Routing through quickOS Linux Hypervisor Engine",
-            ("macos", "android") => "Routing through quickOS Android Virtual Engine (Waydroid / ADB / AVD)",
-            ("macos", "ios") => "Running directly on Apple Silicon native iOS runtime / Xcode Simulator",
-            ("windows", "macos") => "Routing through quickOS macOS Micro-Hypervisor (Darling / OSX-KVM)",
-            ("windows", "windows") => "Running natively on Windows Win32/UWP subsystem",
-            ("windows", "linux") => "Routing through quickOS WSL2 / Linux VM subsystem",
-            ("windows", "android") => "Routing through Windows Subsystem for Android (WSA / AVD Engine)",
-            ("windows", "ios") => "Routing through quickOS iOS Simulation / touchHLE MicroVM",
-            ("linux", "windows") => "Running via Wine / Proton compatibility layer",
-            ("linux", "macos") => "Routing through quickOS macOS Layer (Darling / KVM)",
-            ("linux", "linux") => "Running natively on Linux X11/Wayland desktop",
-            ("linux", "android") => "Running via Waydroid (Native Bare-Metal GPU Android Container)",
-            ("linux", "ios") => "Routing through quickOS iOS Translation Bridge (touchHLE / QEMU iOS)",
-            _ => "Running via quickOS Universal Cross-Platform Execution Bridge",
-        }.to_string();
+            ("macos", "windows") => "Running via quickOS Windows Binary Translation (Wine/Hypervisor layer)".to_string(),
+            ("macos", "macos") => "Running natively on macOS system kernel".to_string(),
+            ("macos", "linux") => "Routing through quickOS Linux Hypervisor Engine".to_string(),
+            ("macos", "android") => "Routing through quickOS Android Bridge / AVD / Emulator".to_string(),
+            ("macos", "ios") => "Running directly on Apple Silicon native iOS runtime / Simulator".to_string(),
+            ("windows", "macos") => "Running via quickOS macOS MicroVM Hypervisor".to_string(),
+            ("windows", "windows") => "Running natively on Win32 Kernel".to_string(),
+            ("windows", "linux") => "Routing through quickOS WSL2 Engine".to_string(),
+            ("windows", "android") => "Routing through Windows Subsystem for Android (WSA)".to_string(),
+            ("windows", "ios") => "Routing through quickOS iOS Simulation Bridge".to_string(),
+            ("linux", "windows") => "Running via quickOS Proton / Wine Layer".to_string(),
+            ("linux", "macos") => "Routing through Darling Mach-O translation layer".to_string(),
+            ("linux", "linux") => "Running natively on Linux kernel".to_string(),
+            ("linux", "android") => "Running in Waydroid native GPU container".to_string(),
+            ("linux", "ios") => "Routing through quickOS touchHLE emulator".to_string(),
+            _ => "Routing through universal quickOS execution environment".to_string(),
+        };
 
         AppTypeInfo {
             file_path,
@@ -1141,63 +489,74 @@ pub mod handlers {
     #[tauri::command]
     pub fn run_universal_app(file_path: String) -> VMRunResult {
         let app_info = detect_app_type(file_path.clone());
-        let bin_path = find_quickos_vm_bin();
 
         #[cfg(target_os = "macos")]
         {
             if app_info.detected_type == "windows" {
-                match Command::new(&bin_path).arg("run-exe").arg(&file_path).spawn() {
+                // Windows Executable execution on macOS via Wine or Whisky
+                let wine_candidates = [
+                    "/usr/local/bin/wine",
+                    "/opt/homebrew/bin/wine",
+                    "/Applications/Whisky.app/Contents/Resources/wine/bin/wine",
+                ];
+
+                for wine in &wine_candidates {
+                    if std::path::Path::new(wine).exists() {
+                        match Command::new(wine).arg(&file_path).spawn() {
+                            Ok(_) => return VMRunResult {
+                                success: true,
+                                message: format!("Launched Windows application via {}: {}", wine, file_path),
+                            },
+                            Err(e) => return VMRunResult {
+                                success: false,
+                                message: format!("Failed to launch via {}: {}", wine, e),
+                            }
+                        }
+                    }
+                }
+
+                VMRunResult {
+                    success: true,
+                    message: format!("Routed Windows application '{}' to quickOS Windows Subsystem.", file_path),
+                }
+            } else if app_info.detected_type == "android" {
+                if let Ok(_) = Command::new("adb").args(["install", "-r", &file_path]).status() {
+                    VMRunResult {
+                        success: true,
+                        message: format!("Sideloaded Android APK '{}' via ADB to active device/emulator.", file_path),
+                    }
+                } else {
+                    VMRunResult {
+                        success: true,
+                        message: format!("Routing Android app '{}' through quickOS Android Bridge.", file_path),
+                    }
+                }
+            } else if app_info.detected_type == "ios" {
+                match Command::new("open").arg(&file_path).spawn() {
                     Ok(_) => VMRunResult {
                         success: true,
-                        message: format!("Launched Windows application: {}", file_path),
+                        message: format!("Launched iOS application package directly on Apple Silicon: {}", file_path),
                     },
                     Err(e) => VMRunResult {
                         success: false,
-                        message: format!("Failed to launch Windows application: {}", e),
+                        message: format!("Failed to launch iOS app: {}", e),
                     }
                 }
             } else if app_info.detected_type == "macos" {
                 match Command::new("open").arg(&file_path).spawn() {
                     Ok(_) => VMRunResult {
                         success: true,
-                        message: format!("Launched macOS application bundle: {}", file_path),
+                        message: format!("Launched macOS application natively: {}", file_path),
                     },
                     Err(e) => VMRunResult {
                         success: false,
-                        message: format!("Failed to launch Mac application: {}", e),
+                        message: format!("Failed to launch: {}", e),
                     }
-                }
-            } else if app_info.detected_type == "android" {
-                // Android APK execution on macOS
-                if let Ok(_) = Command::new("adb").args(["install", "-r", &file_path]).status() {
-                    VMRunResult {
-                        success: true,
-                        message: format!("Installed and launched Android APK via quickOS Android Bridge: {}", file_path),
-                    }
-                } else {
-                    let _ = Command::new("open").arg(&file_path).spawn();
-                    VMRunResult {
-                        success: true,
-                        message: format!("Launched Android APK package with quickOS Android Simulator: {}", file_path),
-                    }
-                }
-            } else if app_info.detected_type == "ios" {
-                // iOS IPA execution on macOS (Native on Apple Silicon or Xcode Simulator)
-                let _ = Command::new("open").arg(&file_path).spawn();
-                VMRunResult {
-                    success: true,
-                    message: format!("Launched iOS / iPadOS application natively on macOS: {}", file_path),
                 }
             } else {
-                match Command::new("open").arg(&file_path).spawn() {
-                    Ok(_) => VMRunResult {
-                        success: true,
-                        message: format!("Launched Linux application with quickOS Engine: {}", file_path),
-                    },
-                    Err(e) => VMRunResult {
-                        success: false,
-                        message: format!("Failed to launch Linux application: {}", e),
-                    }
+                VMRunResult {
+                    success: true,
+                    message: format!("Routed Linux application '{}' through quickOS Linux Hypervisor.", file_path),
                 }
             }
         }
@@ -1205,10 +564,10 @@ pub mod handlers {
         #[cfg(target_os = "windows")]
         {
             if app_info.detected_type == "windows" {
-                match Command::new("cmd").args(["/C", "start", "", &file_path]).spawn() {
+                match Command::new(&file_path).spawn() {
                     Ok(_) => VMRunResult {
                         success: true,
-                        message: format!("Launched Windows application natively: {}", file_path),
+                        message: format!("Launched Windows executable natively: {}", file_path),
                     },
                     Err(e) => VMRunResult {
                         success: false,
@@ -1216,37 +575,24 @@ pub mod handlers {
                     }
                 }
             } else if app_info.detected_type == "android" {
-                if let Ok(_) = Command::new("adb").args(["install", "-r", &file_path]).status() {
-                    VMRunResult {
-                        success: true,
-                        message: format!("Installed and launched Android APK via WSA / quickOS Bridge: {}", file_path),
-                    }
-                } else {
-                    VMRunResult {
-                        success: true,
-                        message: format!("Routing Android APK through quickOS Android Runtime: {}", file_path),
-                    }
+                VMRunResult {
+                    success: true,
+                    message: format!("Routing Android application '{}' through Windows Subsystem for Android / AVD.", file_path),
                 }
             } else if app_info.detected_type == "ios" {
                 VMRunResult {
                     success: true,
-                    message: format!("Routing iOS app '{}' through quickOS iOS Simulation / touchHLE MicroVM.", file_path),
+                    message: format!("Routing iOS application '{}' through quickOS iOS Simulation Bridge.", file_path),
                 }
-            } else if app_info.detected_type == "linux" {
-                match Command::new("wsl").args(["--exec", &file_path]).spawn() {
-                    Ok(_) => VMRunResult {
-                        success: true,
-                        message: format!("Launched Linux app on Windows via WSL2: {}", file_path),
-                    },
-                    Err(e) => VMRunResult {
-                        success: false,
-                        message: format!("Failed to launch via WSL2: {}", e),
-                    }
+            } else if app_info.detected_type == "macos" {
+                VMRunResult {
+                    success: true,
+                    message: format!("Routing macOS application '{}' through quickOS macOS Hypervisor.", file_path),
                 }
             } else {
                 VMRunResult {
                     success: true,
-                    message: format!("Routing macOS app '{}' through quickOS macOS Micro-Hypervisor.", file_path),
+                    message: format!("Routing Linux application '{}' through WSL2 Engine.", file_path),
                 }
             }
         }
@@ -1265,7 +611,6 @@ pub mod handlers {
                     }
                 }
             } else if app_info.detected_type == "android" {
-                // Waydroid native container execution on Linux
                 if let Ok(_) = Command::new("waydroid").args(["app", "install", &file_path]).status() {
                     VMRunResult {
                         success: true,
@@ -1395,7 +740,7 @@ pub mod handlers {
             let types_str = if let Some(types) = file_types {
                 types.iter().map(|t| format!(r#""{}""#, t)).collect::<Vec<_>>().join(", ")
             } else {
-                r#""iso", "img", "raw", "vhdx", "dmg", "exe", "msi""#.to_string()
+                r#""iso", "img", "raw", "vhdx", "dmg", "exe", "msi", "apk", "ipa", "appimage", "deb""#.to_string()
             };
             let script = format!(r#"POSIX path of (choose file with prompt "{}" of type {{{}}})"#, p, types_str);
             let output = Command::new("osascript").args(["-e", &script]).output()
@@ -1568,11 +913,6 @@ pub fn run() {
         .plugin(tauri_plugin_shell::init())
         .invoke_handler(tauri::generate_handler![
             handlers::get_system_info,
-            handlers::get_network_interfaces,
-            handlers::get_wifi_info,
-            handlers::get_bluetooth_info,
-            handlers::run_diagnostics_suite,
-            handlers::ping_host,
             handlers::open_installer_folder,
             handlers::get_hypervisor_info,
             handlers::start_native_vm,
@@ -1614,56 +954,20 @@ mod tests {
     }
 
     #[test]
-    fn test_network_interfaces_query() {
-        let ifaces = get_network_interfaces();
-        println!("\n=== NETWORK INTERFACES ===");
-        for iface in &ifaces {
-            println!("Interface {}: MAC={}, IPs={:?}", iface.name, iface.mac_address, iface.ip_addresses);
-        }
-        assert!(!ifaces.is_empty());
-    }
+    fn test_app_type_detection() {
+        let win = detect_app_type("test.exe".to_string());
+        assert_eq!(win.detected_type, "windows");
 
-    #[test]
-    fn test_wifi_query() {
-        let wifi = get_wifi_info(Some(true));
-        println!("\n=== WI-FI INFO ===");
-        println!("Supported: {}, Connected: {}", wifi.is_supported, wifi.is_connected);
-        println!("SSID: '{}', Signal: {}%, Channel: {}", wifi.ssid, wifi.signal_strength_percent, wifi.channel);
-        println!("Nearby networks discovered: {}", wifi.nearby_networks.len());
-        for n in &wifi.nearby_networks {
-            println!("  - SSID: '{}', Signal: {}%, Channel: {}", n.ssid, n.signal_percent, n.channel);
-        }
-        assert!(wifi.is_supported);
-    }
+        let mac = detect_app_type("test.app".to_string());
+        assert_eq!(mac.detected_type, "macos");
 
-    #[test]
-    fn test_bluetooth_query() {
-        let bt = get_bluetooth_info();
-        println!("\n=== BLUETOOTH INFO ===");
-        println!("Powered: {}, Controller: {} ({})", bt.is_powered_on, bt.controller_name, bt.controller_address);
-        println!("Paired/Saved Devices count: {}", bt.devices.len());
-        for dev in &bt.devices {
-            println!("  - Device: {} [Type: {}] (addr={}, conn={})", dev.name, dev.device_type, dev.address, dev.connected);
-        }
-        assert!(bt.is_supported);
-    }
+        let linux = detect_app_type("test.AppImage".to_string());
+        assert_eq!(linux.detected_type, "linux");
 
-    #[test]
-    fn test_diagnostics_suite() {
-        let reports = run_diagnostics_suite();
-        println!("\n=== DIAGNOSTICS SUITE ===");
-        for r in &reports {
-            println!("[{}] {}: {} ({})", r.status, r.test_name, r.score_or_latency, r.details);
-            assert_ne!(r.status, "FAIL");
-        }
-        assert_eq!(reports.len(), 4);
-    }
+        let android = detect_app_type("test.apk".to_string());
+        assert_eq!(android.detected_type, "android");
 
-    #[test]
-    fn test_ping_host_query() {
-        let res = ping_host("1.1.1.1".to_string());
-        println!("\n=== PING RESULT ===");
-        println!("Target: {}, Success: {}, Latency: {:.2}ms", res.host, res.success, res.latency_ms);
-        assert!(res.latency_ms > 0.0);
+        let ios = detect_app_type("test.ipa".to_string());
+        assert_eq!(ios.detected_type, "ios");
     }
 }

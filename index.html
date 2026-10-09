@@ -25,11 +25,7 @@
         </div>
 
         <nav class="nav-menu">
-          <button class="nav-item active" data-tab="overview">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
-            <span>Overview</span>
-          </button>
-          <button class="nav-item" data-tab="virtual-os">
+          <button class="nav-item active" data-tab="virtual-os">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
             <span>Virtual OS Lab</span>
           </button>
@@ -37,25 +33,13 @@
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"></rect><rect x="14" y="3" width="7" height="7" rx="1.5"></rect><rect x="14" y="14" width="7" height="7" rx="1.5"></rect><rect x="3" y="14" width="7" height="7" rx="1.5"></rect></svg>
             <span>App Library</span>
           </button>
-          <button class="nav-item" data-tab="wifi">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"></path><path d="M1.42 9a16 16 0 0 1 21.16 0"></path><path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><line x1="12" y1="20" x2="12.01" y2="20"></line></svg>
-            <span>Wi-Fi & Networks</span>
-          </button>
-          <button class="nav-item" data-tab="bluetooth">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6.5 6.5 17.5 17.5 12 23 12 1 17.5 6.5 6.5 17.5"></polyline></svg>
-            <span>Bluetooth</span>
-          </button>
-          <button class="nav-item" data-tab="diagnostics">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>
-            <span>OS Diagnostics</span>
-          </button>
-          <button class="nav-item" data-tab="ping">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-            <span>Ping & Latency</span>
+          <button class="nav-item" data-tab="overview">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+            <span>Host Hypervisor</span>
           </button>
           <button class="nav-item" data-tab="installers">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-            <span>1-Click Installers</span>
+            <span>1-Click Packages</span>
           </button>
           <button class="nav-item" data-tab="policies">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
@@ -660,169 +644,7 @@
             </div>
           </section>
 
-          <!-- 4. WIFI & NETWORKS TAB -->
-          <section id="view-wifi" class="view-panel">
-            <div class="view-header">
-              <div>
-                <h2 class="view-title">Wi-Fi & Network Interfaces</h2>
-                <p class="view-desc">Access point status, signal RSSI, BSSID, and network adapter hardware mapping.</p>
-              </div>
-              <button id="btn-scan-wifi" class="btn-primary">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
-                Scan Wi-Fi
-              </button>
-            </div>
-
-            <!-- Active Wi-Fi Banner -->
-            <div class="card wifi-active-banner">
-              <div class="wifi-icon-large">
-                <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12.55a11 11 0 0 1 14.08 0"></path><path d="M1.42 9a16 16 0 0 1 21.16 0"></path><path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><line x1="12" y1="20" x2="12.01" y2="20"></line></svg>
-              </div>
-              <div class="wifi-active-info">
-                <div class="wifi-header-row">
-                  <h3 id="wifi-ssid-display" class="wifi-ssid-title">Checking Wi-Fi...</h3>
-                  <span id="wifi-status-badge" class="badge badge-success">Online</span>
-                </div>
-                <div class="wifi-tags">
-                  <span class="tag" id="wifi-interface-tag">Interface: en0</span>
-                  <span class="tag" id="wifi-channel-tag">Channel: --</span>
-                  <span class="tag" id="wifi-security-tag">Security: WPA2/WPA3</span>
-                  <span class="tag" id="wifi-bssid-tag">BSSID: --</span>
-                </div>
-              </div>
-              <div class="wifi-signal-box">
-                <div class="signal-percentage" id="wifi-signal-num">--%</div>
-                <div class="signal-label">Signal Quality</div>
-              </div>
-            </div>
-
-            <!-- Discovered Local Wi-Fi Networks -->
-            <div class="card">
-              <h3 class="card-heading">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12.55a11 11 0 0 1 14.08 0"></path><path d="M1.42 9a16 16 0 0 1 21.16 0"></path><line x1="12" y1="20" x2="12.01" y2="20"></line></svg>
-                Discovered Surrounding Wi-Fi Access Points
-              </h3>
-              <div id="nearby-wifi-container" class="nearby-wifi-grid">
-                <div class="loading-placeholder">Scanning surrounding networks...</div>
-              </div>
-            </div>
-
-            <!-- Network Adapters Table -->
-            <div class="card">
-              <h3 class="card-heading">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect><rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect><line x1="6" y1="6" x2="6.01" y2="6"></line><line x1="6" y1="18" x2="6.01" y2="18"></line></svg>
-                Physical & Virtual Network Adapters
-              </h3>
-              <div class="table-responsive">
-                <table class="data-table">
-                  <thead>
-                    <tr>
-                      <th>Interface</th>
-                      <th>Hardware MAC Address</th>
-                      <th>Assigned IP Addresses</th>
-                      <th>Rx (Received)</th>
-                      <th>Tx (Transmitted)</th>
-                    </tr>
-                  </thead>
-                  <tbody id="interfaces-table-body">
-                    <tr><td colspan="5" class="text-center">Loading network interfaces...</td></tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </section>
-
-          <!-- 3. BLUETOOTH TAB -->
-          <section id="view-bluetooth" class="view-panel">
-            <div class="view-header">
-              <div>
-                <h2 class="view-title">Bluetooth Controller & Devices</h2>
-                <p class="view-desc">Hardware adapter detection, discovery state, and connected peripheral inventory.</p>
-              </div>
-              <button id="btn-scan-bt" class="btn-primary">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6.5 6.5 17.5 17.5 12 23 12 1 17.5 6.5 6.5 17.5"></polyline></svg>
-                Query Bluetooth
-              </button>
-            </div>
-
-            <div class="card bt-controller-card">
-              <div class="bt-header">
-                <div class="bt-icon">
-                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6.5 6.5 17.5 17.5 12 23 12 1 17.5 6.5 6.5 17.5"></polyline></svg>
-                </div>
-                <div>
-                  <h3 id="bt-controller-name">Inspecting Bluetooth Adapter...</h3>
-                  <p class="text-muted" id="bt-controller-addr">Address: --</p>
-                </div>
-                <div class="bt-status-wrapper">
-                  <span id="bt-power-badge" class="badge badge-success">Adapter Ready</span>
-                </div>
-              </div>
-            </div>
-
-            <div class="card">
-              <h3 class="card-heading">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="2" ry="2"></rect><rect x="9" y="9" width="6" height="6"></rect><line x1="9" y1="1" x2="9" y2="4"></line><line x1="15" y1="1" x2="15" y2="4"></line><line x1="9" y1="20" x2="9" y2="23"></line><line x1="15" y1="20" x2="15" y2="23"></line></svg>
-                Paired & Connected Peripherals
-              </h3>
-              <div id="bt-devices-container" class="bt-devices-grid">
-                <div class="loading-placeholder">Searching for paired Bluetooth devices...</div>
-              </div>
-            </div>
-          </section>
-
-          <!-- 4. DIAGNOSTICS MATRIX TAB -->
-          <section id="view-diagnostics" class="view-panel">
-            <div class="view-header">
-              <div>
-                <h2 class="view-title">OS & Hardware Diagnostic Matrix</h2>
-                <p class="view-desc">Automated cross-platform execution tests for CPU arithmetic, RAM bandwidth, and storage I/O.</p>
-              </div>
-              <button id="btn-run-diag" class="btn-primary">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
-                Run Diagnostic Suite
-              </button>
-            </div>
-
-            <div class="card">
-              <div id="diag-results-container" class="diag-matrix">
-                <div class="diag-intro">
-                  <div class="diag-intro-icon">🧪</div>
-                  <h4>Ready to Run Diagnostics</h4>
-                  <p>Click "Run Diagnostic Suite" to test host math pipelines, memory allocation throughput, disk temporary I/O, and platform compatibility.</p>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          <!-- 5. PING & LATENCY TAB -->
-          <section id="view-ping" class="view-panel">
-            <div class="view-header">
-              <div>
-                <h2 class="view-title">Network Ping & Latency Tester</h2>
-                <p class="view-desc">Verify local DNS routing, gateway responses, and packet roundtrip time.</p>
-              </div>
-            </div>
-
-            <div class="card">
-              <div class="ping-form">
-                <input type="text" id="ping-target-input" class="input-text" placeholder="Enter host or IP (e.g. 1.1.1.1, google.com)" value="1.1.1.1" />
-                <button id="btn-send-ping" class="btn-primary">Execute Ping</button>
-              </div>
-
-              <div class="ping-output-wrapper">
-                <div class="ping-stat-pills">
-                  <div class="pill"><span class="pill-label">Target:</span><span id="ping-stat-host" class="pill-val">--</span></div>
-                  <div class="pill"><span class="pill-label">Roundtrip Latency:</span><span id="ping-stat-lat" class="pill-val">-- ms</span></div>
-                  <div class="pill"><span class="pill-label">Packet Loss:</span><span id="ping-stat-loss" class="pill-val">--%</span></div>
-                  <div class="pill"><span class="pill-label">Status:</span><span id="ping-stat-status" class="pill-val">Idle</span></div>
-                </div>
-                <pre class="terminal-box" id="ping-raw-output">Ping test results will appear here...</pre>
-              </div>
-            </div>
-          </section>
-
-          <!-- 6. 1-CLICK INSTALLERS & OS GUIDE TAB -->
+          <!-- 4. 1-CLICK PACKAGES & OS GUIDE TAB -->
           <section id="view-installers" class="view-panel">
             <div class="view-header">
               <div>
