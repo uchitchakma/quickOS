@@ -512,57 +512,81 @@
                     </svg>
                     Universal Multi-OS App Runner (Run with quickOS)
                   </h3>
-                  <span class="badge badge-success">3-Way Cross-Platform Engine</span>
+                  <span class="badge badge-success">5-Way Cross-Platform Engine</span>
                 </div>
 
                 <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 16px;">
-                  Execute applications built for <strong>macOS, Windows, or Linux</strong> on any host system. quickOS analyzes binary headers in real-time and routes execution to the optimal local hypervisor or binary translation layer.
+                  Execute applications built for <strong>macOS, Windows, Linux, Android, and iOS</strong> on any host computer. quickOS analyzes binary headers in real-time and routes execution to the optimal local hypervisor, container, or translation layer.
                 </p>
 
-                <!-- 3-Way Cross-Platform Strategy Grid -->
-                <div class="grid-3" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px;">
+                <!-- 5-Way Cross-Platform Strategy Grid -->
+                <div class="grid-5" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin-bottom: 20px;">
                   <div class="resource-block">
                     <div class="resource-title" style="display: flex; align-items: center; gap: 6px;">
-                      <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" style="color: #A2AAAD;"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M15.97 6.37c.63-.77 1.06-1.84.94-2.91-.91.04-2.02.61-2.67 1.38-.58.67-1.08 1.76-.95 2.8 1.02.08 2.05-.51 2.68-1.27z"/></svg>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="color: #A2AAAD;"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M15.97 6.37c.63-.77 1.06-1.84.94-2.91-.91.04-2.02.61-2.67 1.38-.58.67-1.08 1.76-.95 2.8 1.02.08 2.05-.51 2.68-1.27z"/></svg>
                       macOS Apps (.app / .dmg)
                     </div>
-                    <p class="resource-desc" style="margin-bottom: 0;">
+                    <p class="resource-desc" style="margin-bottom: 0; font-size: 11px;">
                       • <strong>Mac:</strong> Native execution<br>
-                      • <strong>Windows:</strong> quickOS macOS Micro-Hypervisor<br>
-                      • <strong>Ubuntu:</strong> Darling / Mach-O translation
+                      • <strong>Win:</strong> macOS MicroVM<br>
+                      • <strong>Linux:</strong> Darling Mach-O
                     </p>
                   </div>
 
                   <div class="resource-block">
                     <div class="resource-title" style="display: flex; align-items: center; gap: 6px;">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="color: #0078D4;"><path d="M0 3.449L9.75 2.1v9.451H0m10.949-9.602L24 0v11.4H10.949M0 12.6h9.75v9.451L0 20.699M10.949 12.6H24V24l-12.95-1.801"/></svg>
-                      Windows Apps (.exe / .msi)
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" style="color: #0078D4;"><path d="M0 3.449L9.75 2.1v9.451H0m10.949-9.602L24 0v11.4H10.949M0 12.6h9.75v9.451L0 20.699M10.949 12.6H24V24l-12.95-1.801"/></svg>
+                      Windows (.exe / .msi)
                     </div>
-                    <p class="resource-desc" style="margin-bottom: 0;">
-                      • <strong>Mac:</strong> quickOS Windows Layer (Wine/Whisky)<br>
-                      • <strong>Windows:</strong> Native Win32/UWP<br>
-                      • <strong>Ubuntu:</strong> Wine / Proton Compatibility
+                    <p class="resource-desc" style="margin-bottom: 0; font-size: 11px;">
+                      • <strong>Mac:</strong> Wine / Whisky<br>
+                      • <strong>Win:</strong> Native Win32<br>
+                      • <strong>Linux:</strong> Wine / Proton
                     </p>
                   </div>
 
                   <div class="resource-block">
                     <div class="resource-title" style="display: flex; align-items: center; gap: 6px;">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: #E95420;"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
-                      Linux Apps (.AppImage / .deb)
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: #E95420;"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
+                      Linux (.AppImage / .deb)
                     </div>
-                    <p class="resource-desc" style="margin-bottom: 0;">
-                      • <strong>Mac:</strong> quickOS Linux Hypervisor VM<br>
-                      • <strong>Windows:</strong> quickOS WSL2 / Linux subsystem<br>
-                      • <strong>Ubuntu:</strong> Native ELF execution
+                    <p class="resource-desc" style="margin-bottom: 0; font-size: 11px;">
+                      • <strong>Mac:</strong> Linux Hypervisor<br>
+                      • <strong>Win:</strong> WSL2 Engine<br>
+                      • <strong>Linux:</strong> Native ELF
+                    </p>
+                  </div>
+
+                  <div class="resource-block">
+                    <div class="resource-title" style="display: flex; align-items: center; gap: 6px;">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" style="color: #3DDC84;"><path d="M17.523 15.3414c-.5511 0-.9993-.4486-.9993-.9997s.4482-.9993.9993-.9993c.551 0 .9993.4482.9993.9993.0001.5511-.4483.9997-.9993.9997m-11.046 0c-.5511 0-.9993-.4486-.9993-.9997s.4482-.9993.9993-.9993c.5511 0 .9993.4482.9993.9993 0 .5511-.4482.9997-.9993.9997m11.4045-6.02l1.996-3.4572c.1568-.2716.064-.6184-.2076-.7752-.2715-.1568-.6183-.064-.7752.2076l-2.0236 3.505c-1.391-.6348-2.943-.987-4.571-.987s-3.18.3522-4.571.987L5.709 5.3026c-.1569-.2716-.5037-.3644-.7752-.2076-.2716.1568-.3644.5036-.2076.7752l1.996 3.4572C3.123 11.233 1.054 14.821 1 18.999h22c-.054-4.178-2.123-7.766-5.1185-9.6776"/></svg>
+                      Android Apps (.apk / .aab)
+                    </div>
+                    <p class="resource-desc" style="margin-bottom: 0; font-size: 11px;">
+                      • <strong>Mac:</strong> ADB / QEMU AVD<br>
+                      • <strong>Win:</strong> WSA / AVD<br>
+                      • <strong>Linux:</strong> Waydroid (GPU)
+                    </p>
+                  </div>
+
+                  <div class="resource-block">
+                    <div class="resource-title" style="display: flex; align-items: center; gap: 6px;">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: #A855F7;"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg>
+                      iOS / iPadOS (.ipa)
+                    </div>
+                    <p class="resource-desc" style="margin-bottom: 0; font-size: 11px;">
+                      • <strong>Mac:</strong> Native M-Series/Sim<br>
+                      • <strong>Win:</strong> touchHLE MicroVM<br>
+                      • <strong>Linux:</strong> touchHLE Bridge
                     </p>
                   </div>
                 </div>
 
                 <!-- Universal File Selector & Auto-Detection Row -->
                 <div class="form-group">
-                  <label class="form-label">Select Any Application (.exe, .msi, .app, .dmg, .AppImage, .deb)</label>
+                  <label class="form-label">Select Any Application (.exe, .msi, .app, .dmg, .apk, .aab, .ipa, .AppImage, .deb)</label>
                   <div class="input-action-row">
-                    <input type="text" id="wine-exe-path" class="form-input" placeholder="e.g. /Volumes/ExternalSSD/App.exe or /path/to/Software.app or ./program.AppImage" />
+                    <input type="text" id="wine-exe-path" class="form-input" placeholder="e.g. /path/to/App.exe, /path/to/Game.apk, /path/to/iOS.ipa, or ./program.AppImage" />
                     <button id="btn-browse-wine-exe" class="btn-secondary" title="Browse for any application">Browse App...</button>
                     <button id="btn-run-wine-exe" class="btn-primary">
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>

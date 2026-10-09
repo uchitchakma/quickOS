@@ -199,6 +199,14 @@ function mockBackendResponse<T>(cmd: string, args: Record<string, unknown>): T {
       detectedType = 'linux';
       formatLabel = 'Linux Application Package (.AppImage / .deb)';
       hostStrategy = 'Routing through quickOS Linux Hypervisor Engine';
+    } else if (lower.endsWith('.apk') || lower.endsWith('.aab') || lower.endsWith('.xapk')) {
+      detectedType = 'android';
+      formatLabel = 'Android Application Package (.apk / .aab)';
+      hostStrategy = 'Routing through quickOS Android Virtual Engine (Waydroid / ADB / AVD)';
+    } else if (lower.endsWith('.ipa')) {
+      detectedType = 'ios';
+      formatLabel = 'iOS & iPadOS App Package (.ipa)';
+      hostStrategy = 'Running directly on Apple Silicon native iOS runtime / Xcode Simulator';
     }
     return {
       file_path: p,
@@ -542,7 +550,7 @@ class QuickOSApp {
     document.getElementById('btn-browse-linux-disk')?.addEventListener('click', () => this.browseFileForVM('linux-cfg-disk', ['img', 'raw', 'qcow2']));
     document.getElementById('btn-browse-win-iso')?.addEventListener('click', () => this.browseFileForVM('win-cfg-iso', ['iso', 'img', 'raw', 'vhdx', 'dmg']));
     document.getElementById('btn-browse-linux-iso')?.addEventListener('click', () => this.browseFileForVM('linux-cfg-iso', ['iso', 'img', 'raw', 'dmg']));
-    document.getElementById('btn-browse-wine-exe')?.addEventListener('click', () => this.browseFileForVM('wine-exe-path', ['exe', 'msi', 'bat', 'app', 'dmg', 'pkg', 'appimage', 'deb', 'rpm', 'bin', 'sh']));
+    document.getElementById('btn-browse-wine-exe')?.addEventListener('click', () => this.browseFileForVM('wine-exe-path', ['exe', 'msi', 'bat', 'app', 'dmg', 'pkg', 'apk', 'aab', 'xapk', 'ipa', 'appimage', 'deb', 'rpm', 'bin', 'sh']));
 
     // Input changes on universal app launcher
     document.getElementById('wine-exe-path')?.addEventListener('input', (e) => {
@@ -720,6 +728,10 @@ class QuickOSApp {
           badgeTag.className = 'badge badge-secondary';
         } else if (info.detected_type === 'linux') {
           badgeTag.className = 'badge badge-warning';
+        } else if (info.detected_type === 'android') {
+          badgeTag.className = 'badge badge-success';
+        } else if (info.detected_type === 'ios') {
+          badgeTag.className = 'badge badge-primary';
         } else {
           badgeTag.className = 'badge';
         }
@@ -727,7 +739,12 @@ class QuickOSApp {
       }
 
       if (runBtnText) {
-        const typeTitle = info.detected_type === 'windows' ? 'Windows App' : info.detected_type === 'macos' ? 'Mac App' : info.detected_type === 'linux' ? 'Linux App' : 'App';
+        const typeTitle = info.detected_type === 'windows' ? 'Windows App'
+                        : info.detected_type === 'macos' ? 'Mac App'
+                        : info.detected_type === 'linux' ? 'Linux App'
+                        : info.detected_type === 'android' ? 'Android App'
+                        : info.detected_type === 'ios' ? 'iOS App'
+                        : 'App';
         runBtnText.textContent = `Run ${typeTitle} with quickOS`;
       }
     } catch (e) {
